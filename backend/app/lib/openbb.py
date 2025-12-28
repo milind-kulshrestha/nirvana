@@ -51,7 +51,7 @@ def get_quote(symbol: str) -> dict:
         raise SymbolNotFoundError(f"Error fetching {symbol}: {str(e)}")
 
 
-def get_ma_200(symbol: str) -> float:
+def get_ma_200(symbol: str) -> float | None:
     """
     Calculate 200-day moving average.
 
@@ -59,10 +59,10 @@ def get_ma_200(symbol: str) -> float:
         symbol: Stock ticker symbol
 
     Returns:
-        200-day simple moving average
+        200-day simple moving average, or None if insufficient data
 
     Raises:
-        SymbolNotFoundError: If symbol not found or insufficient data
+        SymbolNotFoundError: If symbol not found
         OpenBBTimeoutError: If API request times out
     """
     try:
@@ -77,14 +77,14 @@ def get_ma_200(symbol: str) -> float:
         )
 
         if not historical or not historical.results:
-            raise SymbolNotFoundError(f"No historical data for {symbol}")
+            # Return None instead of raising error - symbol may be valid but lack data
+            return None
 
         # Get last 200 days of closing prices
         results = historical.results
         if len(results) < 200:
-            raise SymbolNotFoundError(
-                f"Insufficient data for 200-day MA (only {len(results)} days)"
-            )
+            # Return None for insufficient data - this is not an error condition
+            return None
 
         # Calculate simple moving average
         prices = [float(day.close) for day in results[-200:]]
@@ -92,12 +92,11 @@ def get_ma_200(symbol: str) -> float:
 
         return round(ma_200, 2)
 
-    except SymbolNotFoundError:
-        raise
     except Exception as e:
         if "timeout" in str(e).lower():
             raise OpenBBTimeoutError(f"Timeout fetching historical data for {symbol}")
-        raise SymbolNotFoundError(f"Error calculating MA for {symbol}: {str(e)}")
+        # Return None for other errors rather than failing entire request
+        return None
 
 
 def get_history(symbol: str, months: int = 6) -> list[dict]:

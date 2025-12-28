@@ -134,7 +134,11 @@ export default function WatchlistsNew() {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button
+                variant="ghost"
+                className="relative h-10 w-10 rounded-full"
+                aria-label="User menu"
+              >
                 <Avatar>
                   <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
                 </Avatar>

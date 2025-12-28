@@ -42,9 +42,10 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
 
     Returns:
         Security data based on include parameter
+        Note: MA200 may be None if insufficient historical data (< 200 days)
 
     Raises:
-        HTTPException: If symbol not found, timeout, or other error
+        HTTPException: If symbol not found, timeout, or critical error
     """
     symbol = symbol.upper()
     include_parts = [part.strip().lower() for part in include.split(",")]
@@ -54,28 +55,51 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
         "name": None,  # Could fetch from OpenBB if needed
     }
 
+    # Track if we got any successful data
+    has_data = False
+
     try:
         # Fetch quote
         if "quote" in include_parts:
-            quote_data = get_quote(symbol)
-            response_data["quote"] = QuoteData(**quote_data)
+            try:
+                quote_data = get_quote(symbol)
+                response_data["quote"] = QuoteData(**quote_data)
+                has_data = True
+            except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+                logger.warning(f"Quote fetch failed for {symbol}: {e}")
+                # If quote fails, we should return 404 as symbol likely invalid
+                if not has_data:
+                    raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
 
-        # Calculate 200-day MA
+        # Calculate 200-day MA (optional, returns None if insufficient data)
         if "ma200" in include_parts:
-            ma_200_value = get_ma_200(symbol)
-            response_data["ma_200"] = ma_200_value
+            try:
+                ma_200_value = get_ma_200(symbol)
+                response_data["ma_200"] = ma_200_value  # May be None
+                if ma_200_value is not None:
+                    has_data = True
+            except OpenBBTimeoutError as e:
+                logger.warning(f"MA200 fetch timed out for {symbol}: {e}")
+                # Don't fail entire request for MA timeout
+                response_data["ma_200"] = None
 
         # Fetch history
         if "history" in include_parts:
-            history_data = get_history(symbol)
-            response_data["history"] = [HistoryData(**item) for item in history_data]
+            try:
+                history_data = get_history(symbol)
+                response_data["history"] = [HistoryData(**item) for item in history_data]
+                has_data = True
+            except SymbolNotFoundError as e:
+                logger.warning(f"History fetch failed for {symbol}: {e}")
+                # Don't fail entire request if only history fails
+            except OpenBBTimeoutError as e:
+                logger.warning(f"History fetch timed out for {symbol}: {e}")
+                # Don't fail entire request for timeout
 
         return SecurityResponse(**response_data)
 
-    except SymbolNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except OpenBBTimeoutError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching {symbol}: {e}")
+        logger.error(f"Unexpected error fetching {symbol}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
