@@ -139,7 +139,12 @@ async def logout(response: Response):
     Returns:
         204 No Content
     """
-    response.delete_cookie(key="session")
+    response.delete_cookie(
+        key="session",
+        httponly=True,
+        secure=not settings.DEBUG,
+        samesite="lax",
+    )
     return None
 
 

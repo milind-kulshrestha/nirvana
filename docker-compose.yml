@@ -25,7 +25,8 @@ services:
       DATABASE_URL: postgresql://user:password@db:5432/watchlist
       DEBUG: "true"
       SECRET_KEY: "dev-secret-key-change-in-production"
-      CORS_ORIGINS: "http://localhost:5173"
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:5174"
+      FMP_API_KEY: "1d54bc5f969f3fc760d432804694f7cf"
     depends_on:
       db:
         condition: service_healthy

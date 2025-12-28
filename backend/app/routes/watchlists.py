@@ -154,6 +154,50 @@ async def delete_watchlist(
     return None
 
 
+@router.get("/{watchlist_id}/items", response_model=list[WatchlistItemResponse])
+async def get_watchlist_items(
+    watchlist_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all items in a watchlist.
+
+    Args:
+        watchlist_id: Watchlist ID
+        current_user: Authenticated user
+        db: Database session
+
+    Returns:
+        List of watchlist items
+
+    Raises:
+        HTTPException: If watchlist not found or not owned by user
+    """
+    # Verify watchlist belongs to user
+    watchlist = (
+        db.query(Watchlist)
+        .filter(Watchlist.id == watchlist_id, Watchlist.user_id == current_user.id)
+        .first()
+    )
+
+    if not watchlist:
+        raise HTTPException(status_code=404, detail="Watchlist not found")
+
+    # Get all items
+    items = (
+        db.query(WatchlistItem)
+        .filter(WatchlistItem.watchlist_id == watchlist_id)
+        .order_by(WatchlistItem.added_at.desc())
+        .all()
+    )
+
+    return [
+        WatchlistItemResponse(id=item.id, symbol=item.symbol, added_at=item.added_at)
+        for item in items
+    ]
+
+
 @router.post("/{watchlist_id}/items", response_model=WatchlistItemResponse, status_code=201)
 async def add_item_to_watchlist(
     watchlist_id: int,

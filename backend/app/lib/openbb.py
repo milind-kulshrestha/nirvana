@@ -30,7 +30,7 @@ def get_quote(symbol: str) -> dict:
         OpenBBTimeoutError: If API request times out
     """
     try:
-        data = obb.equity.price.quote(symbol=symbol, provider="yfinance")
+        data = obb.equity.price.quote(symbol=symbol, provider="fmp")
 
         if not data or not data.results:
             raise SymbolNotFoundError(f"Symbol {symbol} not found")
@@ -73,7 +73,7 @@ def get_ma_200(symbol: str) -> float:
             symbol=symbol,
             start_date=start_date.strftime("%Y-%m-%d"),
             end_date=end_date.strftime("%Y-%m-%d"),
-            provider="yfinance",
+            provider="fmp",
         )
 
         if not historical or not historical.results:
@@ -123,7 +123,7 @@ def get_history(symbol: str, months: int = 6) -> list[dict]:
             symbol=symbol,
             start_date=start_date.strftime("%Y-%m-%d"),
             end_date=end_date.strftime("%Y-%m-%d"),
-            provider="yfinance",
+            provider="fmp",
         )
 
         if not historical or not historical.results:

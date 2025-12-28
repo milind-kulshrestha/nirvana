@@ -1,4 +1,7 @@
 """FastAPI application setup."""
+import os
+from pathlib import Path
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -26,6 +29,39 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(watchlists.router, prefix="/api/watchlists", tags=["Watchlists"])
 app.include_router(securities.router, prefix="/api/securities", tags=["Securities"])
+
+
+@app.on_event("startup")
+async def configure_openbb():
+    """Configure OpenBB API credentials on startup."""
+    fmp_api_key = os.getenv("FMP_API_KEY")
+
+    if fmp_api_key:
+        # Create OpenBB user settings directory
+        openbb_dir = Path.home() / ".openbb_platform"
+        openbb_dir.mkdir(exist_ok=True)
+
+        settings_file = openbb_dir / "user_settings.json"
+
+        # Load or create settings
+        if settings_file.exists():
+            with open(settings_file, "r") as f:
+                settings_data = json.load(f)
+        else:
+            settings_data = {
+                "credentials": {},
+                "preferences": {},
+                "defaults": {"commands": {}}
+            }
+
+        # Update FMP API key
+        settings_data["credentials"]["fmp_api_key"] = fmp_api_key
+
+        # Write settings
+        with open(settings_file, "w") as f:
+            json.dump(settings_data, f, indent=4)
+
+        print(f"✓ OpenBB configured with FMP API key")
 
 
 @app.get("/")
