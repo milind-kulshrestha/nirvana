@@ -1,4 +1,8 @@
-export default function StockRow({ item, onRemove, onSelect, isSelected }) {
+import { useState } from 'react';
+import StockAnalytics from './StockAnalytics';
+
+export default function StockRow({ item, onRemove }) {
+  const [expanded, setExpanded] = useState(false);
   const quote = item.quote || {};
   const ma200 = item.ma_200;
   const price = quote.price || 0;
@@ -51,12 +55,7 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
   }
 
   return (
-    <div
-      onClick={onSelect}
-      className={`bg-white rounded-lg shadow-sm p-4 border-2 transition cursor-pointer ${
-        isSelected ? 'border-indigo-500' : 'border-transparent hover:border-gray-200'
-      }`}
-    >
+    <div className="bg-white rounded-lg shadow-sm p-3 border-2 border-transparent">
       <div className="flex items-center justify-between">
         {/* Symbol and Name */}
         <div className="flex-1">
@@ -97,6 +96,25 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
           </div>
         </div>
 
+        {/* Analytics Toggle Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded(!expanded);
+          }}
+          className="text-gray-600 hover:text-gray-900 transition p-2 mr-2"
+          title={expanded ? "Hide analytics" : "Show analytics"}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d={expanded ? "M19 9l-7 7-7-7" : "M9 5l7 7-7 7"}
+            />
+          </svg>
+        </button>
+
         {/* Remove Button */}
         <button
           onClick={(e) => {
@@ -118,6 +136,9 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
           200-day MA: ${ma200.toFixed(2)}
         </div>
       )}
+
+      {/* Analytics Panel */}
+      {expanded && <StockAnalytics symbol={item.symbol} />}
     </div>
   );
 }
