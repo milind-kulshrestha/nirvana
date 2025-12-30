@@ -21,9 +21,12 @@ frontend/src/
 │   │   ├── dialog.jsx
 │   │   ├── dropdown-menu.jsx
 │   │   ├── table.jsx
+│   │   ├── tabs.jsx     # Tabs component
 │   │   └── ...
 │   ├── PriceChart.jsx   # 6-month price history chart
-│   └── StockRow.jsx     # Individual stock display
+│   ├── StockRow.jsx     # Individual stock display with expandable analytics
+│   ├── StockAnalytics.jsx # Tabbed analytics container
+│   └── ValuationChart.jsx # Financial ratios charts (P/E, P/B, P/S)
 ├── pages/
 │   ├── LoginNew.jsx     # Login/register page
 │   ├── WatchlistsNew.jsx # Watchlist list
@@ -85,12 +88,14 @@ Zustand store for authentication state:
 - Empty state for new users
 
 ### WatchlistDetail (`pages/WatchlistDetail.jsx`)
+- Single-column layout (right panel removed for future agent integration)
 - Displays stocks in a watchlist
 - Add stock by ticker symbol
 - Remove stocks from watchlist
 - Fetches live market data for each stock
 - Shows loading skeletons during data fetch
 - Uses StockRow component for each stock
+- Reduced white space (compact padding throughout)
 
 ## Components
 
@@ -102,7 +107,10 @@ Zustand store for authentication state:
   - Price change (colored red/green)
   - 200-day moving average
   - Volume
-  - Price chart (via PriceChart component)
+- Expandable analytics section (toggle via chevron button)
+  - When expanded, shows StockAnalytics component below
+  - Smooth expand/collapse transitions
+  - Independent state per stock row
 - Remove button
 - Loading state with skeleton UI
 
@@ -112,6 +120,39 @@ Zustand store for authentication state:
 - Responsive container
 - Formatted axes and tooltips
 - Gradient fill under line
+- Accepts optional `data` prop to prevent redundant API calls
+- Backward compatible (fetches if no data provided)
+
+### StockAnalytics (`components/StockAnalytics.jsx`)
+- Tabbed container for stock analytics
+- Two tabs: "Price History" | "Valuation Metrics"
+- Fetches data in parallel using Promise.all():
+  - Price history from `/api/securities/{symbol}?include=history`
+  - Financial ratios from `/api/securities/{symbol}/ratios`
+- Caches data (no re-fetch on tab switch)
+- Features:
+  - Race condition prevention (cleanup on unmount)
+  - Proper error handling (no silent failures)
+  - Prop validation (symbol required)
+  - Loading states per tab
+  - Error states per tab
+- Gray background with top border
+
+### ValuationChart (`components/ValuationChart.jsx`)
+- Displays three separate financial ratio charts:
+  1. P/E Ratio (Price-to-Earnings)
+  2. P/B Ratio (Price-to-Book)
+  3. P/S Ratio (Price-to-Sales)
+- Each chart:
+  - 200px height
+  - Black line (#000000)
+  - Recharts LineChart with responsive container
+  - Date-formatted X-axis
+  - Value-formatted Y-axis
+  - Interactive tooltips
+  - No dots on line (except active point)
+  - Handles missing data (connectNulls)
+- Empty state for no data
 
 ### UI Components (`components/ui/`)
 shadcn/ui components built on Radix UI:
@@ -120,6 +161,7 @@ shadcn/ui components built on Radix UI:
 - `dialog` - Modal dialogs
 - `dropdown-menu` - Dropdown menus
 - `table` - Table components
+- `tabs` - Tabbed interface (Tabs, TabsList, TabsTrigger, TabsContent)
 - `input` - Form inputs
 - `label` - Form labels
 - `badge` - Status badges
