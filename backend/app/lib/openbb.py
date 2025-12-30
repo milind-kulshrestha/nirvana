@@ -15,6 +15,22 @@ class OpenBBTimeoutError(Exception):
     pass
 
 
+def _format_date(date_obj) -> str:
+    """Format date object to YYYY-MM-DD string."""
+    if isinstance(date_obj, datetime):
+        return date_obj.strftime("%Y-%m-%d")
+    return str(date_obj)
+
+
+def _safe_float_attr(obj, attr_name: str) -> float | None:
+    """Safely extract float attribute from OpenBB result object."""
+    if hasattr(obj, attr_name):
+        value = getattr(obj, attr_name)
+        if value is not None:
+            return float(value)
+    return None
+
+
 def get_quote(symbol: str) -> dict:
     """
     Fetch current quote for symbol.
@@ -147,14 +163,14 @@ def get_history(symbol: str, months: int = 6) -> list[dict]:
         raise SymbolNotFoundError(f"Error fetching history for {symbol}: {str(e)}")
 
 
-def get_financial_ratios(symbol: str, period: str = "quarter", limit: int = 12) -> list[dict]:
+def get_financial_ratios(symbol: str) -> list[dict]:
     """
     Fetch historical financial ratios (P/E, P/B, P/S).
 
+    Note: FMP free tier returns TTM (trailing twelve months) data only.
+
     Args:
         symbol: Stock ticker symbol
-        period: 'quarter' or 'annual' (default: quarter) - Note: FMP free tier ignores these
-        limit: Number of periods to fetch (default: 12) - Note: FMP free tier ignores these
 
     Returns:
         List of dicts: [{date, pe_ratio, pb_ratio, ps_ratio}, ...]
@@ -178,10 +194,10 @@ def get_financial_ratios(symbol: str, period: str = "quarter", limit: int = 12) 
         ratios_list = []
         for result in data.results:
             ratio_dict = {
-                "date": result.period_ending.strftime("%Y-%m-%d") if hasattr(result.period_ending, 'strftime') else str(result.period_ending),
-                "pe_ratio": float(result.price_to_earnings) if hasattr(result, 'price_to_earnings') and result.price_to_earnings else None,
-                "pb_ratio": float(result.price_to_book) if hasattr(result, 'price_to_book') and result.price_to_book else None,
-                "ps_ratio": float(result.price_to_sales) if hasattr(result, 'price_to_sales') and result.price_to_sales else None,
+                "date": _format_date(result.period_ending),
+                "pe_ratio": _safe_float_attr(result, 'price_to_earnings'),
+                "pb_ratio": _safe_float_attr(result, 'price_to_book'),
+                "ps_ratio": _safe_float_attr(result, 'price_to_sales'),
             }
             ratios_list.append(ratio_dict)
 
