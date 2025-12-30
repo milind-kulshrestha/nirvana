@@ -11,13 +11,13 @@ import {
 
 const API_BASE = 'http://localhost:8000';
 
-export default function PriceChart({ symbol }) {
+export default function PriceChart({ symbol, data: externalData }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol || externalData) return; // Skip fetch if data provided
 
     const fetchChartData = async () => {
       setLoading(true);
@@ -43,7 +43,10 @@ export default function PriceChart({ symbol }) {
     };
 
     fetchChartData();
-  }, [symbol]);
+  }, [symbol, externalData]);
+
+  // Use external data if provided, otherwise use fetched data
+  const chartData = externalData || data;
 
   if (loading) {
     return (
@@ -56,7 +59,7 @@ export default function PriceChart({ symbol }) {
     );
   }
 
-  if (error || !data || data.length === 0) {
+  if (error || !chartData || chartData.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{symbol} Chart</h3>
@@ -70,7 +73,7 @@ export default function PriceChart({ symbol }) {
   }
 
   // Calculate min and max for better chart scaling
-  const prices = data.map((d) => d.close);
+  const prices = chartData.map((d) => d.close);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const priceRange = maxPrice - minPrice;
@@ -78,8 +81,8 @@ export default function PriceChart({ symbol }) {
   const yMax = maxPrice + priceRange * 0.1;
 
   // Determine if stock is trending up or down
-  const firstPrice = data[0]?.close || 0;
-  const lastPrice = data[data.length - 1]?.close || 0;
+  const firstPrice = chartData[0]?.close || 0;
+  const lastPrice = chartData[chartData.length - 1]?.close || 0;
   const isPositive = lastPrice >= firstPrice;
   const lineColor = isPositive ? '#10b981' : '#ef4444';
 
@@ -91,7 +94,7 @@ export default function PriceChart({ symbol }) {
       </div>
 
       <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
+        <LineChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis
             dataKey="date"
