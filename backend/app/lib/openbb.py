@@ -145,3 +145,51 @@ def get_history(symbol: str, months: int = 6) -> list[dict]:
         if "timeout" in str(e).lower():
             raise OpenBBTimeoutError(f"Timeout fetching historical data for {symbol}")
         raise SymbolNotFoundError(f"Error fetching history for {symbol}: {str(e)}")
+
+
+def get_financial_ratios(symbol: str, period: str = "quarter", limit: int = 12) -> list[dict]:
+    """
+    Fetch historical financial ratios (P/E, P/B, P/S).
+
+    Args:
+        symbol: Stock ticker symbol
+        period: 'quarter' or 'annual' (default: quarter) - Note: FMP free tier ignores these
+        limit: Number of periods to fetch (default: 12) - Note: FMP free tier ignores these
+
+    Returns:
+        List of dicts: [{date, pe_ratio, pb_ratio, ps_ratio}, ...]
+
+    Raises:
+        SymbolNotFoundError: If symbol not found
+        OpenBBTimeoutError: If API times out
+    """
+    try:
+        # Note: FMP free tier doesn't support period/limit parameters
+        # It returns TTM (trailing twelve months) data by default
+        data = obb.equity.fundamental.ratios(
+            symbol=symbol,
+            provider="fmp"
+        )
+
+        if not data or not data.results:
+            raise SymbolNotFoundError(f"No ratios data for {symbol}")
+
+        # Transform to frontend format
+        ratios_list = []
+        for result in data.results:
+            ratio_dict = {
+                "date": result.period_ending.strftime("%Y-%m-%d") if hasattr(result.period_ending, 'strftime') else str(result.period_ending),
+                "pe_ratio": float(result.price_to_earnings) if hasattr(result, 'price_to_earnings') and result.price_to_earnings else None,
+                "pb_ratio": float(result.price_to_book) if hasattr(result, 'price_to_book') and result.price_to_book else None,
+                "ps_ratio": float(result.price_to_sales) if hasattr(result, 'price_to_sales') and result.price_to_sales else None,
+            }
+            ratios_list.append(ratio_dict)
+
+        return ratios_list
+
+    except SymbolNotFoundError:
+        raise
+    except Exception as e:
+        if "timeout" in str(e).lower():
+            raise OpenBBTimeoutError(f"Timeout fetching ratios for {symbol}")
+        raise SymbolNotFoundError(f"Error fetching ratios: {str(e)}")
