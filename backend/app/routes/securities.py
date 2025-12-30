@@ -1,10 +1,12 @@
 """Securities/market data routes."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 import logging
 
-from app.lib.openbb import get_quote, get_ma_200, get_history, SymbolNotFoundError, OpenBBTimeoutError
+from app.lib.openbb import get_quote, get_ma_200, get_history, get_financial_ratios, SymbolNotFoundError, OpenBBTimeoutError
+from app.routes.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -103,3 +105,18 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
     except Exception as e:
         logger.error(f"Unexpected error fetching {symbol}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{symbol}/ratios")
+async def get_security_ratios(
+    symbol: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get historical financial ratios for a security."""
+    try:
+        ratios = get_financial_ratios(symbol.upper())
+        return ratios
+    except SymbolNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except OpenBBTimeoutError as e:
+        raise HTTPException(status_code=504, detail=str(e))
