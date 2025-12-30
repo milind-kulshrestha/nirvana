@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import StockRow from '../components/StockRow';
-import PriceChart from '../components/PriceChart';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -14,7 +13,6 @@ export default function WatchlistDetail() {
   const [newSymbol, setNewSymbol] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedStock, setSelectedStock] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -132,9 +130,6 @@ export default function WatchlistDetail() {
 
       if (response.ok) {
         setItems(items.filter((item) => item.id !== itemId));
-        if (selectedStock?.id === itemId) {
-          setSelectedStock(null);
-        }
       }
     } catch (error) {
       console.error('Error removing stock:', error);
@@ -153,7 +148,7 @@ export default function WatchlistDetail() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
@@ -186,52 +181,35 @@ export default function WatchlistDetail() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Stocks List */}
-          <div className="lg:col-span-2">
-            {items.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <p className="text-gray-500 mb-4">No stocks in this watchlist</p>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Add your first stock
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <StockRow
-                    key={item.id}
-                    item={item}
-                    onRemove={() => removeStock(item.id)}
-                    onSelect={() => setSelectedStock(item)}
-                    isSelected={selectedStock?.id === item.id}
-                  />
-                ))}
-              </div>
-            )}
-
-            {items.length >= 50 && (
-              <div className="mt-4 text-center text-sm text-gray-500">
-                Maximum stocks reached (50/50)
-              </div>
-            )}
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-4">
+        {/* Stocks List */}
+        {items.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <p className="text-gray-500 mb-4">No stocks in this watchlist</p>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="text-indigo-600 hover:text-indigo-700 font-medium"
+            >
+              Add your first stock
+            </button>
           </div>
-
-          {/* Chart Panel */}
-          <div className="lg:col-span-1">
-            {selectedStock ? (
-              <PriceChart symbol={selectedStock.symbol} />
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center sticky top-4">
-                <p className="text-gray-500">Select a stock to view chart</p>
-              </div>
-            )}
+        ) : (
+          <div className="space-y-1.5">
+            {items.map((item) => (
+              <StockRow
+                key={item.id}
+                item={item}
+                onRemove={() => removeStock(item.id)}
+              />
+            ))}
           </div>
-        </div>
+        )}
+
+        {items.length >= 50 && (
+          <div className="mt-4 text-center text-sm text-gray-500">
+            Maximum stocks reached (50/50)
+          </div>
+        )}
       </main>
 
       {/* Add Stock Modal */}
