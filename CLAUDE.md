@@ -79,15 +79,21 @@ User (1) ──────< (many) Watchlist (1) ──────< (many) Wat
 
 ### Market Data
 - OpenBB SDK in `app/lib/openbb.py`
-- Functions: `get_quote()`, `get_ma_200()`, `get_history()`
+- Functions: `get_quote()`, `get_ma_200()`, `get_history()`, `get_financial_ratios()`
 - Provider: FMP (Financial Modeling Prep)
 - API key configured in docker-compose.yml
+- Financial ratios endpoint: `/api/securities/{symbol}/ratios` (P/E, P/B, P/S)
 
 ### Frontend Structure
-- Pages: Login, Watchlists (list), WatchlistDetail
-- Components: StockRow (live data), PriceChart (recharts)
-- UI: shadcn/ui components in `components/ui/`
+- Pages: Login, Watchlists (list), WatchlistDetail (single column, no right panel)
+- Components:
+  - StockRow (live data with expandable analytics)
+  - StockAnalytics (tabbed container: Price History | Valuation Metrics)
+  - PriceChart (recharts price history)
+  - ValuationChart (P/E, P/B, P/S ratio charts)
+- UI: shadcn/ui components in `components/ui/` (including Tabs)
 - Routing: React Router with ProtectedRoute wrapper
+- Analytics expand inline below each stock (toggle via chevron button)
 
 ## Important Files
 
