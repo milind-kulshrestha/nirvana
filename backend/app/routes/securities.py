@@ -112,11 +112,30 @@ async def get_security_ratios(
     symbol: str,
     current_user: User = Depends(get_current_user)
 ):
-    """Get historical financial ratios for a security."""
+    """
+    Get historical financial ratios for a security.
+
+    Args:
+        symbol: Stock ticker symbol
+        current_user: Authenticated user from session
+
+    Returns:
+        List of financial ratios (P/E, P/B, P/S) with dates
+
+    Raises:
+        HTTPException: If symbol not found (404), API timeout (504), or internal error (500)
+    """
+    symbol = symbol.upper()
+
     try:
-        ratios = get_financial_ratios(symbol.upper())
+        ratios = get_financial_ratios(symbol)
         return ratios
     except SymbolNotFoundError as e:
+        logger.warning(f"Symbol not found for ratios: {symbol}")
         raise HTTPException(status_code=404, detail=str(e))
     except OpenBBTimeoutError as e:
+        logger.warning(f"OpenBB API timeout for ratios: {symbol}")
         raise HTTPException(status_code=504, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error fetching ratios for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
