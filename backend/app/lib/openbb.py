@@ -147,7 +147,7 @@ def get_history(symbol: str, months: int = 6) -> list[dict]:
         # Format for frontend charting
         history_data = [
             {
-                "date": day.date.strftime("%Y-%m-%d") if isinstance(day.date, datetime) else str(day.date),
+                "date": _format_date(day.date),
                 "close": float(day.close),
             }
             for day in historical.results
