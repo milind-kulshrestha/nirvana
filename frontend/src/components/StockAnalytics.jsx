@@ -13,6 +13,14 @@ export default function StockAnalytics({ symbol }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!symbol) {
+      setError('No symbol provided');
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -27,23 +35,42 @@ export default function StockAnalytics({ symbol }) {
           })
         ]);
 
+        if (cancelled) return;
+
+        let errorMessage = null;
+
+        // Handle price response
         if (priceRes.ok) {
           const data = await priceRes.json();
           setPriceData(data.history || []);
+        } else {
+          errorMessage = 'Failed to load price data';
         }
 
+        // Handle ratios response
         if (ratiosRes.ok) {
           const data = await ratiosRes.json();
           setRatiosData(data);
+        } else if (!errorMessage) {
+          errorMessage = 'Failed to load valuation data';
+        }
+
+        if (errorMessage) {
+          setError(errorMessage);
         }
       } catch (err) {
-        setError(err.message);
+        if (!cancelled) {
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+    return () => { cancelled = true };
   }, [symbol]);
 
   if (loading) {
