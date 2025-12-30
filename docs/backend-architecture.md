@@ -103,7 +103,10 @@ Environment-based settings:
 
 ### Securities (`app/routes/securities.py`)
 - `GET /api/securities/{symbol}?include=quote,ma200,history`
-- Returns market data based on include parameter
+  - Returns market data based on include parameter
+- `GET /api/securities/{symbol}/ratios`
+  - Returns historical financial ratios (P/E, P/B, P/S)
+  - Requires authentication (uses `get_current_user` dependency)
 
 ## Utilities
 
@@ -127,6 +130,11 @@ OpenBB SDK integration:
 
 - `get_history(symbol, months=6)` - Returns list of `{date, close}`
   - Uses `obb.equity.price.historical(symbol, provider="fmp")`
+
+- `get_financial_ratios(symbol)` - Returns list of `{date, pe_ratio, pb_ratio, ps_ratio}`
+  - Uses `obb.equity.fundamental.ratios(symbol, provider="fmp")`
+  - Returns TTM (trailing twelve months) data on FMP free tier
+  - Helper functions: `_format_date()`, `_safe_float_attr()` for DRY code
 
 **Error Handling:**
 - `SymbolNotFoundError` - Invalid or unknown symbol
