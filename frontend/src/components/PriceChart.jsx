@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -8,6 +8,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { useAISerializable } from '../hooks/useAISerializable';
+import SendToAIButton from './SendToAIButton';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -15,6 +17,25 @@ export default function PriceChart({ symbol }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const serializeFn = useCallback(() => {
+    if (!data || data.length === 0) return { type: 'price-chart', symbol, dataPoints: 0 };
+    const prices = data.map((d) => d.close);
+    return {
+      type: 'price-chart',
+      symbol,
+      dataPoints: data.length,
+      dateRange: { start: data[0]?.date, end: data[data.length - 1]?.date },
+      priceRange: { min: Math.min(...prices), max: Math.max(...prices) },
+      startPrice: data[0]?.close,
+      endPrice: data[data.length - 1]?.close,
+      changePercent: data[0]?.close
+        ? ((data[data.length - 1]?.close - data[0]?.close) / data[0]?.close * 100).toFixed(2)
+        : null,
+    };
+  }, [symbol, data]);
+
+  const chartRef = useAISerializable(`chart-${symbol}`, serializeFn);
 
   useEffect(() => {
     if (!symbol) return;
@@ -84,10 +105,13 @@ export default function PriceChart({ symbol }) {
   const lineColor = isPositive ? '#10b981' : '#ef4444';
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>
-        <p className="text-sm text-gray-500">6-Month Price History</p>
+    <div ref={chartRef} className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>
+          <p className="text-sm text-gray-500">6-Month Price History</p>
+        </div>
+        <SendToAIButton componentId={`chart-${symbol}`} label={`Ask AI about ${symbol} chart`} />
       </div>
 
       <ResponsiveContainer width="100%" height={300}>

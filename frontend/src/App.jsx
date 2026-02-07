@@ -4,6 +4,8 @@ import useAuthStore from './stores/authStore';
 import LoginNew from './pages/LoginNew';
 import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
+import AISidebar from './components/AISidebar';
+import AIToggleButton from './components/AIToggleButton';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuthStore();
@@ -19,6 +21,17 @@ function ProtectedRoute({ children }) {
   return user ? children : <Navigate to="/" replace />;
 }
 
+function AIOverlay() {
+  const { user } = useAuthStore();
+  if (!user) return null;
+  return (
+    <>
+      <AISidebar />
+      <AIToggleButton />
+    </>
+  );
+}
+
 function App() {
   const { checkAuth } = useAuthStore();
 
@@ -28,6 +41,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <AIOverlay />
       <Routes>
         <Route path="/" element={<LoginNew />} />
         <Route

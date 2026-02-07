@@ -1,3 +1,7 @@
+import { useCallback } from 'react';
+import { useAISerializable } from '../hooks/useAISerializable';
+import SendToAIButton from './SendToAIButton';
+
 export default function StockRow({ item, onRemove, onSelect, isSelected }) {
   const quote = item.quote || {};
   const ma200 = item.ma_200;
@@ -6,6 +10,19 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
   const changePercent = quote.change_percent || 0;
   const isPositive = change >= 0;
   const isAboveMA = ma200 && price > ma200;
+
+  const serializeFn = useCallback(() => ({
+    type: 'stock-quote',
+    symbol: item.symbol,
+    price,
+    change,
+    changePercent,
+    volume: quote.volume || null,
+    ma200: ma200 || null,
+    isAboveMA: Boolean(isAboveMA),
+  }), [item.symbol, price, change, changePercent, quote.volume, ma200, isAboveMA]);
+
+  const ref = useAISerializable(`stock-${item.symbol}`, serializeFn);
 
   // Show loading state
   if (item.loading) {
@@ -52,6 +69,7 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
 
   return (
     <div
+      ref={ref}
       onClick={onSelect}
       className={`bg-white rounded-lg shadow-sm p-4 border-2 transition cursor-pointer ${
         isSelected ? 'border-indigo-500' : 'border-transparent hover:border-gray-200'
@@ -97,19 +115,22 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
           </div>
         </div>
 
-        {/* Remove Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="text-gray-400 hover:text-red-600 transition p-2"
-          title="Remove stock"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        {/* Actions */}
+        <div className="flex items-center gap-1">
+          <SendToAIButton componentId={`stock-${item.symbol}`} label={`Ask AI about ${item.symbol}`} />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+            className="text-gray-400 hover:text-red-600 transition p-2"
+            title="Remove stock"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Additional Info */}
