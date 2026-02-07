@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routes import auth, watchlists, securities, chat
+from app.routes import auth, watchlists, securities, chat, skills
 
 # Create FastAPI app
 app = FastAPI(
@@ -32,6 +32,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(watchlists.router, prefix="/api/watchlists", tags=["Watchlists"])
 app.include_router(securities.router, prefix="/api/securities", tags=["Securities"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])
 
 
 @app.on_event("startup")
