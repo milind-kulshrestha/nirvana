@@ -10,7 +10,16 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
-from app.models import User, Watchlist, WatchlistItem
+from app.models import (
+    User,
+    Watchlist,
+    WatchlistItem,
+    Conversation,
+    Message,
+    MemoryFact,
+    PendingAction,
+    Skill,
+)
 from app.config import settings
 
 # this is the Alembic Config object, which provides
