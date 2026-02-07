@@ -24,3 +24,6 @@ httpx==0.25.2
 
 # Session management
 itsdangerous==2.1.2
+
+# AI Agent
+anthropic>=0.40.0
