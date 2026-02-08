@@ -23,6 +23,22 @@
       "csp": null
     }
   },
+  "plugins": {
+    "shell": {
+      "scope": [
+        {
+          "name": "python-backend",
+          "cmd": "python3",
+          "args": [
+            {
+              "validator": ".*server\\.py$"
+            }
+          ],
+          "sidecar": false
+        }
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
