@@ -4,12 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A full-stack stock watchlist tracker with live market data powered by OpenBB.
+A full-stack stock watchlist tracker with live market data powered by OpenBB and conversational AI assistant powered by Claude.
 
 **Tech Stack:**
 - Backend: FastAPI + SQLAlchemy + PostgreSQL
 - Frontend: React + Vite + TailwindCSS + shadcn/ui
 - Market Data: OpenBB SDK (FMP provider)
+- AI Agent: Anthropic Claude SDK with streaming tool use
 - Auth: Session-based with signed cookies
 - State: Zustand
 
@@ -54,13 +55,34 @@ docker-compose exec db psql -U user -d watchlist  # Access PostgreSQL
 
 ## Documentation
 
-Detailed architecture and development information:
+Comprehensive documentation organized by category:
 
-- **[Backend Architecture](docs/backend-architecture.md)** - FastAPI structure, routes, models, OpenBB integration
-- **[Frontend Architecture](docs/frontend-architecture.md)** - React structure, state management, routing, components
-- **[Database](docs/database.md)** - PostgreSQL schema, relationships, migrations
-- **[Development Guide](docs/development.md)** - Setup, workflows, debugging, troubleshooting
-- **[OpenBB Reference](docs/openbb-reference.md)** - OpenBB Python library API reference, examples, technical indicators
+### 🚀 Getting Started
+- **[Quick Start Guide](docs/getting-started/quick-start.md)** - Installation and setup
+- **[Development Guide](docs/getting-started/development.md)** - Development workflow and debugging
+
+### 📚 Guides  
+- **[Authentication Guide](docs/guides/authentication.md)** - Session-based auth implementation
+- **[Database Setup](docs/guides/database-setup.md)** - PostgreSQL configuration and migrations
+
+### 📖 Reference Documentation
+- **[Architecture](docs/reference/architecture/)** - System design and structure
+  - [Backend Architecture](docs/reference/architecture/backend.md) - FastAPI structure, routes, models
+  - [Frontend Architecture](docs/reference/architecture/frontend.md) - React components, state, routing  
+  - [Database Schema](docs/reference/architecture/database.md) - PostgreSQL tables, relationships
+- **[External APIs](docs/reference/external/)** - Third-party integrations
+  - [OpenBB Reference](docs/reference/external/openbb.md) - Market data API usage and examples
+
+### 📊 Project Management
+- **[Project Status](docs/project/status.md)** - Current development progress
+- **[Changelog](docs/project/changelog.md)** - Version history and updates
+
+### 🤝 Contributing
+- **[Code Style Guide](docs/contributing/code-style.md)** - Coding conventions and standards
+- **[Testing Guidelines](docs/contributing/testing.md)** - Testing strategy and best practices
+- **[Pull Request Process](docs/contributing/pull-requests.md)** - PR guidelines and review process
+
+**Documentation Index:** [docs/README.md](docs/README.md)
 
 ## Key Architecture Notes
 

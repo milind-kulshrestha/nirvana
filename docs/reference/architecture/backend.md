@@ -6,6 +6,7 @@
 - **Database**: PostgreSQL 15 with SQLAlchemy ORM
 - **Authentication**: Session-based with signed cookies (itsdangerous)
 - **Market Data**: OpenBB SDK (FMP provider)
+- **AI Agent**: Anthropic Claude SDK with streaming tool use
 - **Migrations**: Alembic
 
 ## Project Structure
@@ -16,11 +17,32 @@ backend/
 │   ├── models/          # SQLAlchemy models
 │   │   ├── user.py
 │   │   ├── watchlist.py
-│   │   └── watchlist_item.py
+│   │   ├── watchlist_item.py
+│   │   ├── conversation.py    # AI chat sessions
+│   │   ├── message.py         # Chat messages
+│   │   ├── memory_fact.py     # User memory
+│   │   ├── pending_action.py  # Actions awaiting approval
+│   │   └── skill.py           # AI agent skills
 │   ├── routes/          # API endpoints
 │   │   ├── auth.py      # Authentication endpoints
 │   │   ├── watchlists.py # Watchlist CRUD
-│   │   └── securities.py # Market data
+│   │   ├── securities.py # Market data
+│   │   ├── chat.py      # AI chat SSE streaming
+│   │   └── skills.py    # AI skills CRUD
+│   ├── services/        # Business logic
+│   │   ├── chat_service.py     # Chat orchestration
+│   │   └── action_executor.py  # Action execution
+│   ├── agent/           # AI agent core
+│   │   ├── harness.py   # InvestmentAgent (streaming loop)
+│   │   ├── tools.py     # Tool definitions & executor
+│   │   ├── skills.py    # Skill manager
+│   │   ├── prompts.py   # System prompt template
+│   │   └── system_skills/ # Pre-built skills
+│   │       ├── research-stock.md
+│   │       ├── portfolio-review.md
+│   │       ├── compare-stocks.md
+│   │       ├── earnings-preview.md
+│   │       └── watchlist-scan.md
 │   ├── lib/             # Utilities
 │   │   ├── auth.py      # Password & session management
 │   │   ├── openbb.py    # Market data integration
@@ -39,7 +61,7 @@ backend/
 ### `app/main.py`
 - FastAPI app initialization
 - CORS middleware configuration
-- Router registration (/api/auth, /api/watchlists, /api/securities)
+- Router registration (/api/auth, /api/watchlists, /api/securities, /api/chat, /api/skills)
 - OpenBB startup configuration (writes FMP_API_KEY to ~/.openbb_platform/user_settings.json)
 
 ### `app/config.py`
@@ -48,6 +70,9 @@ Environment-based settings:
 - `SECRET_KEY` - Session signing key (itsdangerous)
 - `DATABASE_URL` - PostgreSQL connection string
 - `CORS_ORIGINS` - Comma-separated allowed origins
+- `ANTHROPIC_API_KEY` - Claude API key for AI agent
+- `CLAUDE_MODEL` - Model name (default: claude-3-5-sonnet-20241022)
+- `CLAUDE_MAX_TOKENS` - Max response tokens (default: 4096)
 - `FMP_API_KEY` - Financial Modeling Prep API key for OpenBB
 
 ### `app/database.py`

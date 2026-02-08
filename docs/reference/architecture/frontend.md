@@ -6,9 +6,10 @@
 - **Build Tool**: Vite
 - **Routing**: React Router v7
 - **Styling**: TailwindCSS + shadcn/ui
-- **State Management**: Zustand
+- **State Management**: Zustand (auth, AI chat)
 - **Charts**: Recharts
 - **UI Components**: Radix UI primitives
+- **AI Integration**: SSE streaming with EventSource
 
 ## Project Structure
 
@@ -22,6 +23,10 @@ frontend/src/
 │   │   ├── dropdown-menu.jsx
 │   │   ├── table.jsx
 │   │   └── ...
+│   ├── ai/              # AI agent components
+│   │   ├── AISidebar.jsx        # Chat interface
+│   │   ├── AIToggleButton.jsx   # Floating toggle
+│   │   └── SendToAIButton.jsx   # Context capture button
 │   ├── PriceChart.jsx   # 6-month price history chart
 │   └── StockRow.jsx     # Individual stock display
 ├── pages/
@@ -29,7 +34,11 @@ frontend/src/
 │   ├── WatchlistsNew.jsx # Watchlist list
 │   └── WatchlistDetail.jsx # Watchlist view
 ├── stores/
-│   └── authStore.js     # Zustand auth state
+│   ├── authStore.js     # Zustand auth state
+│   ├── aiChatStore.js   # Zustand AI chat state
+│   └── aiComponentStore.js # Component registry
+├── hooks/
+│   └── useAISerializable.js # AI component registration
 ├── lib/
 │   └── utils.js         # Tailwind utility functions
 ├── App.jsx              # Router setup
@@ -42,6 +51,7 @@ frontend/src/
 ### `App.jsx`
 - React Router setup with BrowserRouter
 - `ProtectedRoute` component that checks auth state
+- AI sidebar integration (conditionally rendered when authenticated)
 - Routes:
   - `/` - LoginNew (public)
   - `/watchlists` - WatchlistsNew (protected)
@@ -66,6 +76,58 @@ Zustand store for authentication state:
 - Base URL: `http://localhost:8000`
 - All requests use `credentials: 'include'` for cookies
 - Returns boolean success/failure
+
+### `stores/aiChatStore.js`
+Zustand store for AI chat state and SSE streaming:
+
+**State:**
+- `messages` - Array of chat messages (user/assistant)
+- `conversations` - List of conversation history
+- `currentConversationId` - Active conversation ID
+- `isStreaming` - Boolean streaming indicator
+- `pendingActions` - Actions awaiting user approval
+- `toolCalls` - Active tool executions
+
+**Actions:**
+- `sendMessage(text, componentContext)` - Send user message via SSE
+- `loadConversations()` - Fetch conversation history
+- `switchConversation(id)` - Load different conversation
+- `confirmAction(actionId)` - Approve pending action
+- `rejectAction(actionId)` - Reject pending action
+
+**SSE Events:**
+- `message` - Streaming text chunks
+- `tool_call` - Tool execution started
+- `tool_result` - Tool execution completed
+- `pending_action` - Action requires approval
+- `done` - Response complete
+- `error` - Error occurred
+
+### `stores/aiComponentStore.js`
+Registry for AI-sendable components:
+
+**State:**
+- `components` - Map of componentId -> serialize function
+
+**Actions:**
+- `register(componentId, serializeFn)` - Register component
+- `unregister(componentId)` - Unregister component
+- `getContext(componentId)` - Get component context data
+
+### `hooks/useAISerializable.js`
+Hook for registering components as AI-sendable:
+
+**Usage:**
+```jsx
+const componentId = useAISerializable(() => ({
+  type: 'stock-quote',
+  symbol: 'AAPL',
+  price: 180.50
+}));
+```
+
+**Returns:**
+- `componentId` - Unique identifier for this component instance
 
 ## Pages
 
