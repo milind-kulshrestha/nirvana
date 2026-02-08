@@ -4,31 +4,33 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A desktop stock watchlist tracker with live market data powered by OpenBB and conversational AI assistant powered by Claude. Currently migrating from web app to native desktop application using Tauri.
+A native desktop stock watchlist tracker with live market data powered by OpenBB and conversational AI assistant powered by Claude.
 
 **Tech Stack:**
 - Backend: FastAPI + SQLAlchemy + SQLite/PostgreSQL
 - Frontend: React + Vite + TailwindCSS + shadcn/ui
-- Desktop: Tauri v2 (Rust + WebView)
-- Market Data: OpenBB SDK (FMP provider)
-- AI Agent: Anthropic Claude SDK with streaming tool use
+- Desktop: Tauri v2 (Rust + WebView) with Python sidecar
+- Market Data: OpenBB SDK (FMP provider) + DuckDB cache
+- AI Agent: Anthropic Claude SDK (claude-sonnet-4-5) with streaming tool use
+- Background: APScheduler for market data refresh
 - Auth: Single-user mode (desktop) or session-based (cloud)
 - State: Zustand
+- CI/CD: GitHub Actions with Tauri build action
 
-**Current Status:** Phase 0 & 1 complete (SQLite + Tauri shell). See [Desktop Migration Plan](docs/plans/2026-02-07-desktop-app-migration.md).
+**Current Status:** All phases complete (0-6). Desktop migration done. See [Desktop Migration Plan](docs/plans/2026-02-07-desktop-app-migration.md).
 
 ## Quick Start
 
-### Desktop Mode (Recommended - Phase 1)
+### Desktop Mode (Recommended)
 ```bash
-# Terminal 1: Start backend (SQLite, no auth required)
-cd backend
-SINGLE_USER_MODE=true uvicorn app.main:app --port 6900
-
-# Terminal 2: Start Tauri desktop app
+# Tauri auto-starts the Python backend sidecar
 cd frontend && npx tauri dev
 
-# Backend will auto-start in Phase 2+
+# Or start backend manually for development:
+# Terminal 1: Backend
+SINGLE_USER_MODE=true uvicorn app.main:app --port 6900
+# Terminal 2: Frontend only
+cd frontend && npm run dev
 ```
 
 ### Web Mode (Legacy - Still Supported)
@@ -134,20 +136,28 @@ User (1) ──────< (many) MemoryFact
 User (1) ──────< (many) PendingAction
 ```
 - CASCADE deletes throughout
-- No cached market data (fetched on-demand)
+- Market data cached separately in DuckDB
 
 **Modes:**
 - SQLite: `~/.nirvana/nirvana.db` (desktop mode, auto-created)
+- DuckDB: `~/.nirvana/market_data.duckdb` (market data cache)
 - PostgreSQL: Docker container (cloud mode, requires migrations)
 
 ### Market Data
-- OpenBB SDK in `app/lib/openbb.py`
+- OpenBB SDK in `app/lib/openbb.py` (cache-first, graceful fallback)
+- DuckDB cache in `app/lib/market_cache.py` (quotes 15min TTL, fundamentals 24h TTL)
+- Background scheduler in `app/lib/scheduler.py` (APScheduler)
 - Functions: `get_quote()`, `get_ma_200()`, `get_history()`
 - Provider: FMP (Financial Modeling Prep)
-- API key configured in docker-compose.yml
+- API keys via `~/.nirvana/config.json` or env vars
+
+### Settings & Config
+- `~/.nirvana/config.json` stores API keys and preferences
+- Settings API: `GET/PUT /api/settings`, `GET /api/settings/status`
+- First-run onboarding wizard detects missing keys
 
 ### Frontend Structure
-- Pages: Login, Watchlists (list), WatchlistDetail
+- Pages: Login, Watchlists (list), WatchlistDetail, Settings
 - Components: StockRow (live data), PriceChart (recharts)
 - UI: shadcn/ui components in `components/ui/`
 - Routing: React Router with ProtectedRoute wrapper
@@ -155,28 +165,35 @@ User (1) ──────< (many) PendingAction
 ## Important Files
 
 **Backend:**
-- `backend/app/main.py` - FastAPI app, CORS, router registration
+- `backend/app/main.py` - FastAPI app, CORS, router registration, scheduler startup
 - `backend/app/database.py` - SQLite/PostgreSQL connection with auto-fallback
-- `backend/app/config.py` - Environment config (SINGLE_USER_MODE)
-- `backend/app/routes/` - API endpoints (auth, watchlists, securities, chat, skills)
+- `backend/app/config.py` - Environment + config.json settings
+- `backend/app/routes/` - API endpoints (auth, watchlists, securities, chat, skills, settings)
 - `backend/app/models/` - SQLAlchemy models
 - `backend/app/lib/auth.py` - Session management + single-user bypass
-- `backend/app/lib/openbb.py` - Market data integration
-- `backend/app/agent/` - AI agent system (harness, tools, skills, prompts)
+- `backend/app/lib/openbb.py` - Market data integration (cache-first)
+- `backend/app/lib/market_cache.py` - DuckDB market data cache
+- `backend/app/lib/scheduler.py` - Background data refresh (APScheduler)
+- `backend/app/lib/config_manager.py` - ~/.nirvana/config.json manager
+- `backend/app/lib/agent/` - AI agent system (harness, tools, skills, prompts)
 
 **Frontend:**
-- `frontend/src/App.jsx` - Router setup
+- `frontend/src/App.jsx` - Router setup + startup health check + onboarding
 - `frontend/src/stores/authStore.js` - Auth state
 - `frontend/src/stores/aiChatStore.js` - AI chat state
-- `frontend/src/pages/` - Page components
-- `frontend/src/components/` - Reusable components
+- `frontend/src/pages/` - Page components (incl. Settings)
+- `frontend/src/components/` - Reusable components (incl. StartupScreen, OnboardingWizard)
 
 **Desktop (Tauri):**
-- `frontend/src-tauri/src/main.rs` - Tauri entry point
-- `frontend/src-tauri/tauri.conf.json` - Window config, bundling
+- `frontend/src-tauri/src/lib.rs` - Sidecar lifecycle management
+- `frontend/src-tauri/tauri.conf.json` - Window config, shell scope, updater
 - `frontend/src-tauri/Cargo.toml` - Rust dependencies
 
-**Config:**
+**Sidecar:**
+- `python-core/server.py` - Python backend sidecar wrapper
+
+**Config & CI:**
 - `docker-compose.yml` - Service configuration (cloud mode)
 - `backend/requirements.txt` - Python dependencies
 - `frontend/package.json` - Node + Tauri dependencies
+- `.github/workflows/release.yml` - CI/CD for macOS/Windows builds

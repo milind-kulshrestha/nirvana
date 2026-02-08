@@ -6,6 +6,57 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-02-08] - Desktop App Migration (Phases 2-6)
+
+### Added
+- **Phase 2: Python Sidecar** - Tauri auto-starts/stops Python backend
+  - `python-core/server.py` sidecar wrapper with readiness signal (`NIRVANA_BACKEND_READY`)
+  - Rust sidecar management in `lib.rs` (spawn on launch, kill on exit)
+  - Shell plugin scope configuration for `python3` command
+  - `tauri-plugin-process` for exit handling
+  - Frontend startup splash screen with health check polling (500ms interval, 15s timeout)
+- **Phase 3: First-Run & Settings** - User-friendly configuration
+  - `GET/PUT /api/settings` routes with masked key display
+  - `GET /api/settings/status` for first-run detection
+  - `~/.nirvana/config.json` configuration manager (thread-safe, lazy-loaded)
+  - Settings page with API Keys, Data, and About sections
+  - First-run onboarding wizard (step-by-step API key setup with skip option)
+  - shadcn/ui Switch component added
+  - Settings accessible from navigation gear icon
+- **Phase 4: Local Data Pipeline** - Background caching
+  - DuckDB market data cache (`~/.nirvana/market_data.duckdb`)
+  - Tables: `daily_prices`, `quotes_cache`, `fundamentals`
+  - Cache layer with TTL (quotes: 15 min, fundamentals: 24 hours)
+  - `openbb.py` now checks cache first, falls back to API (graceful degradation)
+  - Background scheduler via APScheduler
+    - Quote refresh every 15 min during market hours (Mon-Fri, 9:00 AM - 3:45 PM ET)
+    - Daily snapshot at 6:00 PM ET for end-of-day prices
+- **Phase 5: Agent Enhancements** - New AI capabilities
+  - `create_monitor` tool - background price alerts stored in `~/.nirvana/monitors.json`
+  - `export_report` tool - markdown reports saved to `~/.nirvana/exports/`
+  - `query_market_data` tool - read-only SQL against DuckDB cache (SELECT only, 500 row cap)
+  - Model updated to `claude-sonnet-4-5-20250929`
+  - System prompt expanded with monitoring, reports, and data query sections
+- **Phase 6: Distribution** - Build and release pipeline
+  - GitHub Actions release workflow (`.github/workflows/release.yml`)
+  - Build matrix: macOS + Windows, triggered on `v*` tags
+  - Tauri auto-updater plugin (`tauri-plugin-updater`)
+  - Python bundling helper script (`scripts/bundle-python.sh`)
+  - Product landing page (`docs/landing/index.html`)
+  - Distribution architecture documentation
+
+### Changed
+- `backend/app/config.py` - API keys now read from `config.json` as fallback (env vars still override)
+- `backend/app/main.py` - Registers settings router, starts/stops scheduler and OpenBB config from config.json
+- `frontend/src-tauri/src/lib.rs` - Complete rewrite with sidecar lifecycle management
+- `frontend/src-tauri/tauri.conf.json` - Shell scope, updater plugin configuration
+- `frontend/src-tauri/Cargo.toml` - Added tauri-plugin-process, tauri-plugin-updater
+- `frontend/src/App.jsx` - Startup health check gate, settings route, onboarding overlay
+
+### Dependencies Added
+- Backend: `duckdb>=1.0.0`, `apscheduler>=3.10.0`
+- Rust: `tauri-plugin-process`, `tauri-plugin-updater`
+
 ## [2026-02-07] - Desktop App Migration (Phase 0 & 1)
 
 ### Added

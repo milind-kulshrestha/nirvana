@@ -16,11 +16,13 @@ A full-stack stock watchlist tracker with live market data powered by OpenBB.
 - **[Architecture](reference/architecture/)** - System architecture documentation
   - [Backend Architecture](reference/architecture/backend.md)
   - [Frontend Architecture](reference/architecture/frontend.md)
-  - [Desktop Architecture](reference/architecture/desktop.md) - Tauri desktop app
+  - [Desktop Architecture](reference/architecture/desktop.md) - Tauri desktop app (sidecar, settings, caching)
+  - [Distribution](reference/architecture/distribution.md) - CI/CD, auto-updater, code signing
   - [Database Schema](reference/architecture/database.md)
   - [AI Agent Architecture](reference/architecture/ai-agent.md) - Conversational AI system
 - **[External APIs](reference/external/)** - Third-party integrations
   - [OpenBB Reference](reference/external/openbb.md)
+- **[Landing Page](landing/index.html)** - Product landing page
 
 ### 📊 Project Management
 - **[Project Status](project/status.md)** - Current development status

@@ -80,49 +80,53 @@ cd frontend && npx tauri dev
 
 **Result:** Native macOS window running React app. Backend still manual.
 
-### Phase 2: Python Sidecar 🚧 NEXT
+### Phase 2: Python Sidecar ✅ COMPLETE
 **Goal:** Auto-start/stop Python backend from Tauri.
 
-**Planned Changes:**
-- Create `python-core/server.py` wrapper
-- Register sidecar in `tauri.conf.json`
-- Spawn Python process on app launch
-- Health-check backend before loading frontend
-- Kill backend on app quit
+**Changes:**
+- Created `python-core/server.py` sidecar wrapper
+- Rust sidecar management (spawn on launch, kill on `RunEvent::Exit`)
+- Shell plugin scope for `python3` command
+- Stdout monitoring for `NIRVANA_BACKEND_READY` readiness signal
+- Frontend splash screen with health check polling (500ms, 15s timeout)
+- `backend-ready` and `backend-terminated` events emitted to frontend
 
-**Result:** Double-click Nirvana.app → everything starts automatically.
+**Result:** Double-click Nirvana.app → Python starts automatically → splash shows → app loads.
 
-### Phase 3: First-Run & Settings
+### Phase 3: First-Run & Settings ✅ COMPLETE
 **Goal:** User-friendly configuration without `.env` files.
 
-**Planned Features:**
-- Settings UI for API keys (Anthropic, FMP)
-- First-run onboarding flow
-- Config stored in `~/.nirvana/config.json`
+**Changes:**
+- `GET/PUT /api/settings` + `GET /api/settings/status` routes
+- `~/.nirvana/config.json` thread-safe ConfigManager
+- Settings page (API keys with test buttons, data preferences, about)
+- First-run onboarding wizard (step-by-step, skip option)
+- Backend reads keys from config.json (env vars still override)
 
-### Phase 4: Local Data Pipeline
+### Phase 4: Local Data Pipeline ✅ COMPLETE
 **Goal:** Background data refresh and caching.
 
-**Planned Features:**
-- DuckDB for market data caching
-- Background scheduler for quote refresh
-- Drastically reduced API calls
+**Changes:**
+- DuckDB at `~/.nirvana/market_data.duckdb` (daily_prices, quotes_cache, fundamentals)
+- Cache-first `openbb.py` with graceful fallback to API
+- APScheduler: quote refresh every 15 min (market hours), daily snapshot at 6 PM ET
 
-### Phase 5: Claude Agent SDK
-**Goal:** Enhanced AI capabilities with MCP support.
+### Phase 5: Agent Enhancements ✅ COMPLETE
+**Goal:** Enhanced AI capabilities.
 
-**Planned Changes:**
-- Replace hand-rolled agent harness with SDK
-- MCP servers for OpenBB, file I/O, DuckDB
+**Changes:**
+- 3 new tools: `create_monitor`, `export_report`, `query_market_data`
+- Model updated to claude-sonnet-4-5
+- Read-only SQL against DuckDB with injection protection
 
-### Phase 6: Distribution
-**Goal:** Signed, installable binaries.
+### Phase 6: Distribution ✅ COMPLETE
+**Goal:** Build pipeline and auto-updates.
 
-**Planned Features:**
-- Code signing (Apple Developer ID, Windows cert)
-- Auto-updater
-- GitHub Releases CI/CD
-- Landing page
+**Changes:**
+- GitHub Actions release workflow (macOS + Windows, on `v*` tags)
+- Tauri auto-updater plugin
+- Python bundling helper script
+- Product landing page
 
 ## Project Structure
 
@@ -139,13 +143,23 @@ nirvana/
 │   │   └── tauri.conf.json     # Tauri config
 │   ├── package.json
 │   └── vite.config.js
-├── backend/                    # Python backend (modified for SQLite)
+├── backend/                    # Python backend
 │   └── app/
 │       ├── database.py         # ✅ SQLite auto-fallback
-│       ├── config.py           # ✅ SINGLE_USER_MODE
-│       └── routes/auth.py      # ✅ Local user injection
-└── python-core/                # 🚧 Future sidecar wrapper
-    └── server.py
+│       ├── config.py           # ✅ SINGLE_USER_MODE + config.json
+│       ├── routes/auth.py      # ✅ Local user injection
+│       ├── routes/settings.py  # ✅ Settings API
+│       └── lib/
+│           ├── openbb.py       # ✅ Cache-first market data
+│           ├── market_cache.py # ✅ DuckDB cache layer
+│           ├── scheduler.py    # ✅ Background data refresh
+│           └── config_manager.py # ✅ Config.json manager
+├── python-core/                # ✅ Sidecar wrapper
+│   └── server.py
+├── scripts/
+│   └── bundle-python.sh        # Python bundling helper
+└── .github/workflows/
+    └── release.yml             # CI/CD for builds
 ```
 
 ## Configuration Files
@@ -271,12 +285,9 @@ npx tauri build
 5. **Background Tasks** - Persistent data refresh (future)
 6. **Local MCP Servers** - Enhanced AI capabilities (future)
 
-## Known Limitations (Phase 1)
+## Known Limitations
 
-- Backend must be started manually (no sidecar yet)
-- No first-run setup UI (requires manual .env configuration)
-- No background data refresh
-- No auto-updates
-- No code signing (apps appear as "unidentified developer")
-
-These will be addressed in Phases 2-6.
+- No code signing yet (apps appear as "unidentified developer") - requires Apple/Windows dev certs
+- Python bundling script needs platform-specific implementation for production distribution
+- Frontend API base URL hardcoded to `localhost:8000` in legacy files (needs to be configurable)
+- `python3` must be on PATH for sidecar to work (until Python is bundled)

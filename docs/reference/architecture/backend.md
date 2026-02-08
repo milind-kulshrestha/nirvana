@@ -29,7 +29,8 @@ backend/
 │   │   ├── watchlists.py # Watchlist CRUD
 │   │   ├── securities.py # Market data
 │   │   ├── chat.py      # AI chat SSE streaming
-│   │   └── skills.py    # AI skills CRUD
+│   │   ├── skills.py    # AI skills CRUD
+│   │   └── settings.py  # Settings API + first-run detection
 │   ├── services/        # Business logic
 │   │   ├── chat_service.py     # Chat orchestration
 │   │   └── action_executor.py  # Action execution
@@ -46,7 +47,10 @@ backend/
 │   │       └── watchlist-scan.md
 │   ├── lib/             # Utilities
 │   │   ├── auth.py      # Password & session management
-│   │   ├── openbb.py    # Market data integration
+│   │   ├── openbb.py    # Market data integration (cache-first)
+│   │   ├── market_cache.py # DuckDB market data cache
+│   │   ├── scheduler.py # Background data refresh (APScheduler)
+│   │   ├── config_manager.py # ~/.nirvana/config.json manager
 │   │   └── validators.py # Input validation
 │   ├── config.py        # Settings
 │   ├── database.py      # DB connection
@@ -164,21 +168,47 @@ Environment-based settings:
 Session tokens use itsdangerous URLSafeTimedSerializer with SECRET_KEY.
 
 ### `app/lib/openbb.py`
-OpenBB SDK integration:
+OpenBB SDK integration with DuckDB cache layer:
 
 - `get_quote(symbol)` - Returns `{price, change, change_percent, volume}`
-  - Uses `obb.equity.price.quote(symbol, provider="fmp")`
+  - Checks DuckDB cache first (TTL: 15 minutes)
+  - Falls back to `obb.equity.price.quote(symbol, provider="fmp")`
+  - Caches result on fetch
 
 - `get_ma_200(symbol)` - Returns 200-day simple moving average
-  - Fetches 250 days of historical data
-  - Calculates average of last 200 closing prices
+  - Tries computing from cached daily_prices first (needs >= 200 rows)
+  - Falls back to fetching 250 days of historical data from OpenBB
+  - Caches fetched history for future use
 
 - `get_history(symbol, months=6)` - Returns list of `{date, close}`
-  - Uses `obb.equity.price.historical(symbol, provider="fmp")`
+  - Checks DuckDB cache for date range coverage
+  - Falls back to `obb.equity.price.historical(symbol, provider="fmp")`
+  - Caches full OHLCV data on fetch
+
+All cache operations wrapped in try/except for graceful degradation if DuckDB is unavailable.
 
 **Error Handling:**
 - `SymbolNotFoundError` - Invalid or unknown symbol
 - `OpenBBTimeoutError` - API request timeout
+
+### `app/lib/market_cache.py`
+DuckDB-based market data cache at `~/.nirvana/market_data.duckdb`:
+- `get_cached_quote()` / `cache_quote()` - Quote snapshots (15 min TTL)
+- `get_cached_history()` / `cache_history()` - Daily OHLCV prices
+- `get_cached_fundamentals()` / `cache_fundamentals()` - Fundamentals (24h TTL)
+- Thread-safe singleton connection with lazy init
+
+### `app/lib/scheduler.py`
+Background scheduler using APScheduler (AsyncIOScheduler):
+- `refresh_quotes` - Every 15 min, Mon-Fri, 9:00 AM - 3:45 PM ET
+- `daily_snapshot` - 6:00 PM ET weekdays (12 months of history per symbol)
+- Refreshes all symbols across user watchlists
+
+### `app/lib/config_manager.py`
+Thread-safe configuration manager for `~/.nirvana/config.json`:
+- Read/write API keys and preferences
+- Env vars override config.json values
+- Lazy loading with in-memory cache
 
 ### `app/lib/validators.py`
 Input validation functions for email and password requirements.

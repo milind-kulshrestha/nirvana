@@ -1,22 +1,30 @@
 # Project Status
 
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-02-08
 
-## Current Status: Desktop App Migration (Phase 0 & 1 Complete)
+## Current Status: Desktop App Migration Complete (All Phases)
 
-Nirvana is transitioning from a web app to a native desktop application using Tauri. Phases 0 & 1 are complete, establishing SQLite support and the Tauri shell.
+Nirvana has completed the full migration from web app to native desktop application. All 7 phases (0-6) are implemented.
 
-### Latest Accomplishments (2026-02-07)
-- ✅ **Phase 0: Database & Auth Decoupling**
-  - SQLite support with auto-fallback in SINGLE_USER_MODE
-  - Single-user mode bypasses auth (auto-creates local user)
-  - Auto-create tables on startup (no Alembic for SQLite)
-  - PostgreSQL support preserved for potential cloud mode
-- ✅ **Phase 1: Tauri Shell**
-  - Tauri v2 initialized in frontend/src-tauri/
-  - Native macOS/Windows window (1280x800)
-  - Successfully builds Nirvana.app + .dmg
-  - Frontend unchanged - still talks to backend API
+### Latest Accomplishments (2026-02-08)
+- ✅ **Phase 2: Python Sidecar** - Auto-start/stop backend from Tauri
+  - Sidecar wrapper with readiness signal
+  - Rust lifecycle management (spawn on launch, kill on exit)
+  - Startup splash screen with health check polling
+- ✅ **Phase 3: First-Run & Settings** - User-friendly configuration
+  - Settings API with config.json persistence
+  - Settings page with API key management and test buttons
+  - First-run onboarding wizard
+- ✅ **Phase 4: Local Data Pipeline** - Background caching
+  - DuckDB market data cache with TTL
+  - Cache-first OpenBB integration (graceful fallback)
+  - APScheduler for quote refresh during market hours
+- ✅ **Phase 5: Agent Enhancements** - New AI capabilities
+  - Price monitor creation, report export, DuckDB SQL queries
+  - Model upgraded to claude-sonnet-4-5
+- ✅ **Phase 6: Distribution** - Build and release pipeline
+  - GitHub Actions CI for macOS/Windows builds
+  - Tauri auto-updater, landing page
 
 ### Project Features ✅
 - ✅ User registration and login (optional in single-user mode)
@@ -33,6 +41,17 @@ Nirvana is transitioning from a web app to a native desktop application using Ta
 - ✅ **Desktop Application**
   - ✅ Native Tauri v2 shell (macOS/Windows)
   - ✅ Packaged .dmg installer
+  - ✅ Auto-start Python sidecar
+  - ✅ Startup splash screen
+  - ✅ Auto-updater
+- ✅ **Settings & Onboarding**
+  - ✅ Settings page (API keys, data preferences)
+  - ✅ First-run onboarding wizard
+  - ✅ Config.json-based persistence
+- ✅ **Market Data Caching**
+  - ✅ DuckDB cache (quotes, daily prices, fundamentals)
+  - ✅ Background scheduler (quote refresh, daily snapshots)
+  - ✅ Cache-first API pattern with graceful fallback
 - ✅ **AI Agent Integration**
   - ✅ Conversational AI assistant powered by Claude
   - ✅ Stock research and analysis tools
@@ -41,6 +60,9 @@ Nirvana is transitioning from a web app to a native desktop application using Ta
   - ✅ Memory and personalization
   - ✅ Pending action approval workflow
   - ✅ Context-aware component integration
+  - ✅ Price monitor creation
+  - ✅ Report export to disk
+  - ✅ DuckDB SQL queries from agent
 
 ### Technical Stack
 - **Backend**: FastAPI + SQLAlchemy + SQLite/PostgreSQL
@@ -48,46 +70,48 @@ Nirvana is transitioning from a web app to a native desktop application using Ta
 - **Desktop Shell**: Tauri v2 (Rust + WebView)
 - **State**: Zustand for auth and AI chat management
 - **Charts**: Recharts for price visualization
-- **Market Data**: OpenBB SDK with FMP provider
+- **Market Data**: OpenBB SDK with FMP provider + DuckDB cache
+- **Caching**: DuckDB for market data, APScheduler for background refresh
 - **Auth**: Session cookies (or single-user bypass) with itsdangerous + bcrypt
-- **AI**: Anthropic Claude SDK with streaming tool use
+- **AI**: Anthropic Claude SDK (claude-sonnet-4-5) with streaming tool use
+- **CI/CD**: GitHub Actions with Tauri build action
 
-### Next Steps: Desktop App Migration
-1. **Phase 2: Python Sidecar** (2-3 days)
-   - Auto-start/stop Python backend from Tauri
-   - Single-process user experience
-   - Health checks and startup splash screen
-2. **Phase 3: First-Run & Settings** (1-2 days)
-   - Settings UI for API keys (no .env files)
-   - First-run onboarding flow
-   - Config stored in ~/.nirvana/config.json
-3. **Phase 4: Local Data Pipeline** (3-5 days)
-   - DuckDB for market data caching
-   - Background scheduler for quote refresh
-   - Dramatically reduced API calls
-4. **Phase 5: Claude Agent SDK** (3-5 days)
-   - Replace hand-rolled harness with SDK
-   - MCP server support (OpenBB, file I/O, DuckDB)
-   - Enhanced agent capabilities
-5. **Phase 6: Distribution** (2-3 days)
-   - Signed installers (.dmg, .exe)
-   - Auto-updater
-   - Landing page
+### Next Steps
+1. **Code signing** - Apple Developer ID + Windows signing cert
+2. **Python bundling** - Embed Python runtime in app bundle for distribution
+3. **API base URL** - Make frontend API URL configurable (currently hardcoded)
 
-### Future AI Enhancements
-1. Additional investment analysis skills
-2. Chart pattern recognition
-3. News sentiment analysis
-4. Earnings transcript analysis
+### Future Enhancements
+1. MCP server support (OpenBB, file I/O, DuckDB)
+2. Additional investment analysis skills
+3. Chart pattern recognition
+4. News sentiment analysis
+5. Earnings transcript analysis
 
 ### Blockers
-- None
+- Code signing certificates needed for distribution
+- Python bundling script needs platform-specific implementation
 
 ---
 
 ## Milestone History
 
 ### Completed Milestones
+
+#### Milestone 6: Desktop App Migration - Phases 2-6 (Feb 8, 2026) ✅
+- Python sidecar with auto-start/stop from Tauri (readiness signal, graceful shutdown)
+- Startup splash screen with health check polling
+- Settings API + config.json persistence (thread-safe ConfigManager)
+- Settings page with API key management and first-run onboarding wizard
+- DuckDB market data cache (daily_prices, quotes_cache, fundamentals)
+- Cache-first OpenBB integration with graceful fallback
+- Background scheduler (APScheduler) for quote refresh during market hours
+- 3 new agent tools: create_monitor, export_report, query_market_data
+- Agent model upgraded to claude-sonnet-4-5
+- GitHub Actions CI for macOS/Windows builds
+- Tauri auto-updater plugin
+- Product landing page
+- Distribution documentation
 
 #### Milestone 5: Desktop App Migration - Phase 0 & 1 (Feb 7, 2026) ✅
 - SQLite database support with automatic fallback
