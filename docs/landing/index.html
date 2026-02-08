@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nirvana - AI-Powered Stock Watchlist Tracker</title>
+  <meta name="description" content="Nirvana is a native desktop stock watchlist tracker with live market data and a conversational AI assistant. Local-first, private, and fast.">
+  <meta property="og:title" content="Nirvana - AI-Powered Stock Watchlist Tracker">
+  <meta property="og:description" content="A native desktop stock watchlist tracker with live market data and a conversational AI assistant powered by Claude.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://github.com/OWNER/nirvana">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Nirvana - AI-Powered Stock Watchlist Tracker">
+  <meta name="twitter:description" content="Native desktop stock watchlist tracker with AI assistant. Local-first and private.">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a26;
+      --border: #2a2a3a;
+      --text-primary: #e8e8f0;
+      --text-secondary: #9090a8;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      --green: #22c55e;
+      --green-dim: rgba(34, 197, 94, 0.12);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--accent-hover);
+    }
+
+    /* Nav */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 10rem 0 6rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 600px;
+      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      padding: 0.35rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      margin-bottom: 2rem;
+      letter-spacing: 0.02em;
+    }
+
+    .hero-badge span {
+      color: var(--green);
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 0.5rem;
+    }
+
+    .tagline {
+      font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+      color: var(--text-secondary);
+      font-weight: 400;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-description {
+      max-width: 580px;
+      margin: 0 auto 2.5rem;
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      line-height: 1.7;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.8rem 1.75rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+      transform: translateY(-1px);
+    }
+
+    .btn-icon {
+      font-size: 1.1rem;
+    }
+
+    /* Features */
+    .features {
+      padding: 5rem 0;
+    }
+
+    .section-label {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 3rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      padding: 2rem;
+      border-radius: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--text-secondary);
+      transform: translateY(-2px);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      background: var(--accent-glow);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .feature-icon.green {
+      background: var(--green-dim);
+      border-color: rgba(34, 197, 94, 0.2);
+    }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-card p {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* Tech */
+    .tech {
+      padding: 5rem 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .tech-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+    }
+
+    .tech-item {
+      padding: 1.5rem;
+      border-radius: 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .tech-item .tech-name {
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.35rem;
+    }
+
+    .tech-item .tech-desc {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+
+    /* Footer */
+    footer {
+      padding: 3rem 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .footer-note {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      nav {
+        padding: 0.75rem 1rem;
+      }
+
+      .nav-links {
+        gap: 1rem;
+      }
+
+      .container {
+        padding: 0 1.25rem;
+      }
+
+      .hero {
+        padding: 8rem 0 4rem;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .tech-list {
+        grid-template-columns: 1fr;
+      }
+
+      .cta-group {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .btn {
+        width: 100%;
+        max-width: 280px;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-brand">Nirvana</div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#tech">Tech</a></li>
+      <li><a href="https://github.com/OWNER/nirvana" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-badge"><span>&#9679;</span> Open Source &middot; Desktop App</div>
+      <h1>Nirvana</h1>
+      <p class="tagline">AI-powered stock watchlist tracker</p>
+      <p class="hero-description">
+        A native desktop app for tracking your watchlists with live market data
+        and a conversational AI assistant. Your data stays on your machine &mdash;
+        private, fast, and always available.
+      </p>
+      <div class="cta-group">
+        <a href="https://github.com/OWNER/nirvana/releases/latest" class="btn btn-primary">
+          <span class="btn-icon">&#63743;</span> Download for macOS
+        </a>
+        <a href="https://github.com/OWNER/nirvana/releases/latest" class="btn btn-secondary">
+          <span class="btn-icon">&#8862;</span> Download for Windows
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <p class="section-label">Features</p>
+      <h2 class="section-title">Everything you need to track the market</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 10H9v-1h2v1zm0-3H9V5h2v4z" fill="#818cf8"/></svg>
+          </div>
+          <h3>AI Assistant</h3>
+          <p>Chat with Claude about your portfolio, get instant analysis, and ask questions about any stock in your watchlist.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14l4-4 3 3 7-7" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>Live Market Data</h3>
+          <p>Real-time quotes powered by OpenBB and Financial Modeling Prep. Prices, moving averages, and historical charts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="7" width="14" height="10" rx="2" stroke="#818cf8" stroke-width="1.5"/><path d="M7 7V5a3 3 0 016 0v2" stroke="#818cf8" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <h3>Local &amp; Private</h3>
+          <p>All data stored locally on your machine in SQLite. No cloud accounts, no tracking, no data leaving your computer.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon green">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4v12" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="7" stroke="#22c55e" stroke-width="1.5"/></svg>
+          </div>
+          <h3>Smart Caching</h3>
+          <p>Background data refresh with DuckDB &mdash; charts and historical data load instantly after the first fetch.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tech" id="tech">
+    <div class="container">
+      <p class="section-label">Under the Hood</p>
+      <h2 class="section-title">Built with modern tools</h2>
+      <div class="tech-list">
+        <div class="tech-item">
+          <p class="tech-name">Tauri v2</p>
+          <p class="tech-desc">Native performance, tiny bundle size. Rust-powered shell with system webview.</p>
+        </div>
+        <div class="tech-item">
+          <p class="tech-name">React + TailwindCSS</p>
+          <p class="tech-desc">Fast, responsive frontend with shadcn/ui components and Zustand state management.</p>
+        </div>
+        <div class="tech-item">
+          <p class="tech-name">Python + FastAPI</p>
+          <p class="tech-desc">Async backend handling market data, AI conversations, and local database operations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/OWNER/nirvana" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/OWNER/nirvana/releases/latest" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/OWNER/nirvana/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+      <p class="footer-note">
+        MIT License &middot; Built with Tauri, React, and Claude
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
