@@ -19,6 +19,7 @@ pydantic>=2.5.1
 
 # Database
 alembic==1.13.0
+duckdb>=1.0.0
 
 # Testing
 pytest==7.4.3
