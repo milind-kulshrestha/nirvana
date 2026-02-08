@@ -3,11 +3,12 @@
 ## Tech Stack
 
 - **Framework**: FastAPI
-- **Database**: PostgreSQL 15 with SQLAlchemy ORM
-- **Authentication**: Session-based with signed cookies (itsdangerous)
+- **Database**: SQLite (desktop mode) or PostgreSQL 15 (cloud mode) with SQLAlchemy ORM
+- **Authentication**: Session-based with signed cookies (itsdangerous) or single-user bypass
 - **Market Data**: OpenBB SDK (FMP provider)
 - **AI Agent**: Anthropic Claude SDK with streaming tool use
-- **Migrations**: Alembic
+- **Migrations**: Alembic (PostgreSQL) or auto-create (SQLite)
+- **Desktop Shell**: Tauri v2 (optional - for native app packaging)
 
 ## Project Structure
 
@@ -68,7 +69,8 @@ backend/
 Environment-based settings:
 - `DEBUG` - Enable debug mode
 - `SECRET_KEY` - Session signing key (itsdangerous)
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - Database connection string (defaults to SQLite if not set)
+- `SINGLE_USER_MODE` - Enable single-user desktop mode (bypasses auth)
 - `CORS_ORIGINS` - Comma-separated allowed origins
 - `ANTHROPIC_API_KEY` - Claude API key for AI agent
 - `CLAUDE_MODEL` - Model name (default: claude-3-5-sonnet-20241022)
@@ -76,10 +78,22 @@ Environment-based settings:
 - `FMP_API_KEY` - Financial Modeling Prep API key for OpenBB
 
 ### `app/database.py`
-- SQLAlchemy engine creation
+- SQLAlchemy engine creation (SQLite or PostgreSQL)
+- Automatic SQLite fallback when `DATABASE_URL` not set
+- Auto-create tables on startup for SQLite mode
 - SessionLocal factory
 - Base class for models
 - `get_db()` dependency for route injection
+
+**Database Modes:**
+- **SQLite Mode** (default): No `DATABASE_URL` set
+  - Uses `sqlite:///~/.nirvana/nirvana.db`
+  - Auto-creates tables on startup (no Alembic)
+  - Ideal for single-user desktop application
+- **PostgreSQL Mode**: `DATABASE_URL` set
+  - Uses provided PostgreSQL connection string
+  - Requires Alembic migrations
+  - Ideal for multi-user cloud deployments
 
 ## Models
 
@@ -112,12 +126,21 @@ Environment-based settings:
 - `POST /api/auth/logout` - Clear session cookie
 - `GET /api/auth/me` - Get current user info
 
-**Authentication Flow:**
+**Authentication Modes:**
+
+*Multi-User Mode (default):*
 1. User submits credentials
 2. Backend validates and creates signed session token
 3. Token stored in HTTP-only cookie (7-day expiry)
 4. Protected routes use `get_current_user` dependency
 5. Dependency validates session cookie and retrieves User object
+
+*Single-User Mode (`SINGLE_USER_MODE=true`):*
+1. On startup, creates default user if not exists (email: `local@nirvana.app`)
+2. `get_current_user` dependency automatically injects default user
+3. No session validation required
+4. Registration/login endpoints still work but are optional
+5. Ideal for local desktop application
 
 ### Watchlists (`app/routes/watchlists.py`)
 - `GET /api/watchlists` - List user's watchlists
@@ -181,18 +204,29 @@ Migrations stored in `backend/alembic/versions/`.
 
 ### Running the Backend
 
-**Docker Compose (recommended):**
+**Desktop Mode (SQLite + Single User):**
+```bash
+cd backend
+SINGLE_USER_MODE=true uvicorn app.main:app --port 6900
+# No Docker, Postgres, or auth required
+# Perfect for local development or desktop app
+```
+
+**Docker Compose (PostgreSQL + Multi-User):**
 ```bash
 docker-compose up -d
 docker-compose exec backend alembic upgrade head
 docker-compose logs -f backend
+# Requires Docker and PostgreSQL
+# Ideal for cloud deployments
 ```
 
-**Local:**
+**Local Development (PostgreSQL):**
 ```bash
 cd backend
 source venv/bin/activate
 uvicorn app.main:app --reload --port 8000
+# Requires local PostgreSQL running
 ```
 
 ### Testing

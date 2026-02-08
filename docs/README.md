@@ -16,6 +16,7 @@ A full-stack stock watchlist tracker with live market data powered by OpenBB.
 - **[Architecture](reference/architecture/)** - System architecture documentation
   - [Backend Architecture](reference/architecture/backend.md)
   - [Frontend Architecture](reference/architecture/frontend.md)
+  - [Desktop Architecture](reference/architecture/desktop.md) - Tauri desktop app
   - [Database Schema](reference/architecture/database.md)
   - [AI Agent Architecture](reference/architecture/ai-agent.md) - Conversational AI system
 - **[External APIs](reference/external/)** - Third-party integrations
@@ -32,15 +33,27 @@ A full-stack stock watchlist tracker with live market data powered by OpenBB.
 
 ## Tech Stack
 
-- **Backend:** FastAPI + SQLAlchemy + PostgreSQL
+- **Backend:** FastAPI + SQLAlchemy + SQLite/PostgreSQL
 - **Frontend:** React + Vite + TailwindCSS + shadcn/ui
+- **Desktop:** Tauri v2 (Rust + WebView)
 - **Market Data:** OpenBB SDK (FMP provider)
 - **AI Agent:** Anthropic Claude SDK with streaming tool use
-- **Auth:** Session-based with signed cookies
+- **Auth:** Session-based or single-user bypass
 - **State:** Zustand
 
 ## Quick Start
 
+### Desktop Mode (Recommended)
+```bash
+# Terminal 1: Start backend (SQLite, no auth)
+cd backend
+SINGLE_USER_MODE=true uvicorn app.main:app --port 6900
+
+# Terminal 2: Start Tauri desktop app
+cd frontend && npx tauri dev
+```
+
+### Web Mode (Legacy)
 ```bash
 # Start backend + database
 docker-compose up -d

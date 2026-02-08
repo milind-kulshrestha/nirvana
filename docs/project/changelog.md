@@ -6,6 +6,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-02-07] - Desktop App Migration (Phase 0 & 1)
+
+### Added
+- **SQLite Database Support** - Dual-mode database configuration
+  - Automatic SQLite fallback when `DATABASE_URL` not set
+  - Default path: `sqlite:///~/.nirvana/nirvana.db`
+  - Auto-create tables on startup (no Alembic for SQLite)
+  - PostgreSQL support preserved for multi-user/cloud deployments
+- **Single-User Mode** - Local desktop authentication bypass
+  - `SINGLE_USER_MODE=true` env var
+  - Auto-creates default local user on first run
+  - Skips session cookie validation
+  - Auth infrastructure preserved for future cloud mode
+- **Tauri v2 Desktop Shell** - Native application wrapper
+  - Initialized in `frontend/src-tauri/`
+  - 1280x800 native window
+  - Shell plugin configured for future Python sidecar
+  - Successfully builds Nirvana.app + .dmg installer
+  - Icons for macOS and Windows platforms
+- **Dependencies**
+  - Backend: `bcrypt` explicitly added (was transitive)
+  - Backend: `psycopg2-binary` now optional (not needed for SQLite)
+  - Frontend: `@tauri-apps/cli` and `@tauri-apps/api`
+- **Documentation**
+  - Desktop app migration plan in `docs/plans/2026-02-07-desktop-app-migration.md`
+  - 6-phase roadmap from web to distributable desktop app
+
+### Changed
+- `backend/app/database.py` - Detect database type, auto-create SQLite tables
+- `backend/app/config.py` - Add `SINGLE_USER_MODE` configuration
+- `backend/app/routes/auth.py` - Inject default user in single-user mode
+- `backend/app/main.py` - Skip Alembic in SQLite mode
+
+### Technical Details
+- Backend can now run standalone with `SINGLE_USER_MODE=true uvicorn app.main:app`
+- No Docker, Postgres, or authentication required for local desktop use
+- Tauri dev mode: `npx tauri dev` (starts Vite + native window)
+- Production build: `npx tauri build` (creates .app + .dmg)
+- All existing features (watchlists, AI agent, market data) work unchanged
+
 ## [2026-02-07] - AI Agent Integration
 
 ### Added
