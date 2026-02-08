@@ -1,5 +1,10 @@
 """Custom tools for the AI investment agent."""
+import json
 import logging
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+
 from sqlalchemy.orm import Session
 
 from app.models.watchlist import Watchlist
@@ -13,6 +18,8 @@ from app.lib.openbb import (
     SymbolNotFoundError,
     OpenBBTimeoutError,
 )
+
+_NIRVANA_DIR = Path.home() / ".nirvana"
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +138,74 @@ TOOL_DEFINITIONS = [
             "type": "object",
             "properties": {},
             "required": [],
+        },
+    },
+    {
+        "name": "create_monitor",
+        "description": "Create a background price monitor/alert for a symbol",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol",
+                },
+                "condition": {
+                    "type": "string",
+                    "enum": ["above", "below"],
+                    "description": "Trigger when price goes above or below threshold",
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Price threshold",
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Alert message to show when triggered",
+                },
+            },
+            "required": ["symbol", "condition", "threshold"],
+        },
+    },
+    {
+        "name": "export_report",
+        "description": "Export an analysis report to a file on disk",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Report title",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Report content in markdown",
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Output filename (without path)",
+                },
+            },
+            "required": ["title", "content"],
+        },
+    },
+    {
+        "name": "query_market_data",
+        "description": (
+            "Run a SQL query against the local market data cache (DuckDB). "
+            "Tables: daily_prices (symbol, date, open, high, low, close, volume), "
+            "quotes_cache (symbol, data, fetched_at), "
+            "fundamentals (symbol, data, fetched_at)"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "SQL SELECT query to execute against the DuckDB market data cache",
+                },
+            },
+            "required": ["query"],
         },
     },
 ]
@@ -268,3 +343,116 @@ class ToolExecutor:
             {"type": f.fact_type, "content": f.content, "confidence": f.confidence}
             for f in facts
         ]
+
+    async def _handle_create_monitor(self, input: dict) -> dict:
+        """Create a background price monitor and persist to monitors.json."""
+        symbol = input["symbol"].upper()
+        condition = input["condition"]
+        threshold = input["threshold"]
+        message = input.get("message", f"{symbol} is {condition} {threshold}")
+
+        monitors_path = _NIRVANA_DIR / "monitors.json"
+        _NIRVANA_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Load existing monitors
+        monitors = []
+        if monitors_path.exists():
+            try:
+                monitors = json.loads(monitors_path.read_text())
+            except (json.JSONDecodeError, OSError):
+                monitors = []
+
+        monitor = {
+            "id": len(monitors) + 1,
+            "user_id": self.user_id,
+            "symbol": symbol,
+            "condition": condition,
+            "threshold": threshold,
+            "message": message,
+            "active": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        monitors.append(monitor)
+        monitors_path.write_text(json.dumps(monitors, indent=2))
+
+        return {
+            "monitor_id": monitor["id"],
+            "symbol": symbol,
+            "condition": condition,
+            "threshold": threshold,
+            "message": message,
+            "status": "created",
+        }
+
+    async def _handle_export_report(self, input: dict) -> dict:
+        """Export a markdown analysis report to disk."""
+        title = input["title"]
+        content = input["content"]
+        filename = input.get("filename")
+
+        if not filename:
+            # Auto-generate filename from title
+            safe_title = re.sub(r"[^\w\s-]", "", title).strip().replace(" ", "_")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{safe_title}_{timestamp}.md"
+
+        # Ensure filename is safe (no path traversal)
+        filename = Path(filename).name
+
+        exports_dir = _NIRVANA_DIR / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        file_path = exports_dir / filename
+        report_content = f"# {title}\n\n*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*\n\n{content}"
+        file_path.write_text(report_content)
+
+        return {
+            "filename": filename,
+            "path": str(file_path),
+            "size_bytes": file_path.stat().st_size,
+            "status": "exported",
+        }
+
+    async def _handle_query_market_data(self, input: dict) -> dict | list:
+        """Execute a read-only SQL query against the DuckDB market data cache."""
+        query = input["query"].strip()
+
+        # Only allow SELECT queries
+        first_keyword = query.split()[0].upper() if query else ""
+        if first_keyword not in ("SELECT", "WITH", "EXPLAIN"):
+            return {"error": "Only SELECT queries are allowed. INSERT/UPDATE/DELETE/DROP are not permitted."}
+
+        # Block dangerous keywords even within CTEs
+        dangerous = re.search(
+            r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE)\b",
+            query,
+            re.IGNORECASE,
+        )
+        if dangerous:
+            return {"error": f"Query contains forbidden keyword: {dangerous.group(0)}. Only read-only queries are allowed."}
+
+        try:
+            from app.lib.market_cache import _get_connection
+
+            conn = _get_connection()
+            result = conn.execute(query).fetchall()
+            columns = [desc[0] for desc in conn.description()]
+
+            rows = []
+            for row in result[:500]:  # Limit to 500 rows
+                row_dict = {}
+                for col, val in zip(columns, row):
+                    # Convert date/datetime objects to strings for JSON
+                    if hasattr(val, "isoformat"):
+                        val = val.isoformat()
+                    row_dict[col] = val
+                rows.append(row_dict)
+
+            return {
+                "columns": columns,
+                "rows": rows,
+                "row_count": len(rows),
+                "truncated": len(result) > 500,
+            }
+        except Exception as e:
+            return {"error": f"Query failed: {str(e)}"}
