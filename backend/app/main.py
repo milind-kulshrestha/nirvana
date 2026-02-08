@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes import auth, watchlists, securities, chat, skills
+from app.routes import settings as settings_routes
 
 # Create FastAPI app
 app = FastAPI(
@@ -33,6 +34,7 @@ app.include_router(watchlists.router, prefix="/api/watchlists", tags=["Watchlist
 app.include_router(securities.router, prefix="/api/securities", tags=["Securities"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])
+app.include_router(settings_routes.router, prefix="/api/settings", tags=["Settings"])
 
 
 @app.on_event("startup")
@@ -47,7 +49,7 @@ async def init_database():
 @app.on_event("startup")
 async def configure_openbb():
     """Configure OpenBB API credentials on startup."""
-    fmp_api_key = os.getenv("FMP_API_KEY")
+    fmp_api_key = os.getenv("FMP_API_KEY") or settings.OPENBB_API_KEY
 
     if fmp_api_key:
         # Create OpenBB user settings directory

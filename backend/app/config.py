@@ -4,9 +4,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Import config_manager lazily to avoid circular imports
+_config_manager = None
+
+
+def _get_config_manager():
+    global _config_manager
+    if _config_manager is None:
+        from app.lib.config_manager import config_manager
+        _config_manager = config_manager
+    return _config_manager
+
 
 class Settings:
-    """Application settings."""
+    """Application settings.
+
+    Priority: environment variables > config.json > defaults.
+    """
 
     # App
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
@@ -29,11 +43,21 @@ class Settings:
     def is_sqlite(self) -> bool:
         return self.DATABASE_URL.startswith("sqlite")
 
-    # OpenBB
-    OPENBB_API_KEY: str = os.getenv("OPENBB_API_KEY", "")
+    # OpenBB / FMP - env var overrides config.json
+    @property
+    def OPENBB_API_KEY(self) -> str:
+        env_val = os.getenv("OPENBB_API_KEY") or os.getenv("FMP_API_KEY")
+        if env_val:
+            return env_val
+        return _get_config_manager().get("fmp_api_key", "")
 
-    # Anthropic
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # Anthropic - env var overrides config.json
+    @property
+    def ANTHROPIC_API_KEY(self) -> str:
+        env_val = os.getenv("ANTHROPIC_API_KEY")
+        if env_val:
+            return env_val
+        return _get_config_manager().get("anthropic_api_key", "")
 
     # CORS
     CORS_ORIGINS: list[str] = os.getenv(
