@@ -4,9 +4,13 @@ import useAuthStore from './stores/authStore';
 import LoginNew from './pages/LoginNew';
 import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
+import Settings from './pages/Settings';
 import AISidebar from './components/AISidebar';
 import AIToggleButton from './components/AIToggleButton';
 import StartupScreen from './components/StartupScreen';
+import OnboardingWizard from './components/OnboardingWizard';
+
+const API_BASE = 'http://localhost:8000';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuthStore();
@@ -35,13 +39,42 @@ function AIOverlay() {
 
 function App() {
   const [backendReady, setBackendReady] = useState(false);
-  const { checkAuth } = useAuthStore();
+  const { user, checkAuth } = useAuthStore();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [missingKeys, setMissingKeys] = useState([]);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
 
   useEffect(() => {
     if (backendReady) {
       checkAuth();
     }
   }, [backendReady, checkAuth]);
+
+  // Check onboarding status after user is authenticated
+  useEffect(() => {
+    if (!user || onboardingChecked) return;
+
+    const checkOnboarding = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/settings/status`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.missing_keys && data.missing_keys.length > 0) {
+            setMissingKeys(data.missing_keys);
+            setShowOnboarding(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking settings status:', error);
+      } finally {
+        setOnboardingChecked(true);
+      }
+    };
+
+    checkOnboarding();
+  }, [user, onboardingChecked]);
 
   if (!backendReady) {
     return <StartupScreen onReady={() => setBackendReady(true)} />;
@@ -50,6 +83,12 @@ function App() {
   return (
     <BrowserRouter>
       <AIOverlay />
+      {showOnboarding && (
+        <OnboardingWizard
+          missingKeys={missingKeys}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
       <Routes>
         <Route path="/" element={<LoginNew />} />
         <Route
@@ -65,6 +104,14 @@ function App() {
           element={
             <ProtectedRoute>
               <WatchlistDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />
