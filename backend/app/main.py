@@ -79,6 +79,29 @@ async def configure_openbb():
         print(f"✓ OpenBB configured with FMP API key")
 
 
+@app.on_event("startup")
+async def start_scheduler():
+    """Start the background market-data refresh scheduler."""
+    try:
+        from app.lib.scheduler import scheduler
+        scheduler.start()
+        print("✓ Background scheduler started")
+    except Exception as e:
+        print(f"⚠ Scheduler failed to start: {e}")
+
+
+@app.on_event("shutdown")
+async def stop_scheduler():
+    """Shut down the background scheduler gracefully."""
+    try:
+        from app.lib.scheduler import scheduler
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+            print("✓ Background scheduler stopped")
+    except Exception:
+        pass
+
+
 @app.get("/")
 async def root():
     """Root endpoint."""
