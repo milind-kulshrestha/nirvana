@@ -36,6 +36,15 @@ app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])
 
 
 @app.on_event("startup")
+async def init_database():
+    """Auto-create tables in SQLite mode (replaces Alembic)."""
+    if settings.SINGLE_USER_MODE or settings.is_sqlite:
+        from app.database import init_db
+        init_db()
+        print(f"✓ Database initialized ({settings.DATABASE_URL})")
+
+
+@app.on_event("startup")
 async def configure_openbb():
     """Configure OpenBB API credentials on startup."""
     fmp_api_key = os.getenv("FMP_API_KEY")

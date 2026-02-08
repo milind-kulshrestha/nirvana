@@ -33,6 +33,19 @@ async def get_current_user(
     session: str = Cookie(default=None), db: Session = Depends(get_db)
 ) -> User:
     """Get current authenticated user from session cookie."""
+    # Single-user mode: skip auth, return default local user
+    if settings.SINGLE_USER_MODE:
+        user = db.query(User).filter(User.email == "local@nirvana.app").first()
+        if not user:
+            user = User(
+                email="local@nirvana.app",
+                password_hash="single-user-mode",
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        return user
+
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
 

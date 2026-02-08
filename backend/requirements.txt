@@ -2,12 +2,15 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
+
+# Database drivers (psycopg2 only needed for Postgres mode)
+# psycopg2-binary==2.9.9
 
 # OpenBB
 openbb==4.1.0
 
 # Auth
+bcrypt>=4.0.0
 passlib[bcrypt]==1.7.4
 
 # Utilities
