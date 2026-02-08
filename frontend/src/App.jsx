@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
 import LoginNew from './pages/LoginNew';
@@ -6,6 +6,7 @@ import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
 import AISidebar from './components/AISidebar';
 import AIToggleButton from './components/AIToggleButton';
+import StartupScreen from './components/StartupScreen';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuthStore();
@@ -33,11 +34,18 @@ function AIOverlay() {
 }
 
 function App() {
+  const [backendReady, setBackendReady] = useState(false);
   const { checkAuth } = useAuthStore();
 
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    if (backendReady) {
+      checkAuth();
+    }
+  }, [backendReady, checkAuth]);
+
+  if (!backendReady) {
+    return <StartupScreen onReady={() => setBackendReady(true)} />;
+  }
 
   return (
     <BrowserRouter>
