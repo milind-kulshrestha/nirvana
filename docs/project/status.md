@@ -7,6 +7,9 @@
 Nirvana has completed the full migration from web app to native desktop application. All 7 phases (0-6) are implemented.
 
 ### Latest Accomplishments (2026-02-08)
+- ✅ **Critical Bug Fix: ConfigManager Deadlock** - `threading.Lock` → `threading.RLock` fixed deadlock that caused grey screen on startup
+- ✅ **Critical Bug Fix: Event Loop Blocking** - `AsyncIOScheduler` → `BackgroundScheduler` prevents API hangs during scheduler jobs
+- ✅ **UI Consistency: WatchlistDetail** - Migrated to shadcn/ui components (Button, Dialog, Input, Label) and theme tokens
 - ✅ **Phase 2: Python Sidecar** - Auto-start/stop backend from Tauri
   - Sidecar wrapper with readiness signal
   - Rust lifecycle management (spawn on launch, kill on exit)
@@ -77,9 +80,10 @@ Nirvana has completed the full migration from web app to native desktop applicat
 - **CI/CD**: GitHub Actions with Tauri build action
 
 ### Next Steps
-1. **Code signing** - Apple Developer ID + Windows signing cert
-2. **Python bundling** - Embed Python runtime in app bundle for distribution
-3. **API base URL** - Make frontend API URL configurable (currently hardcoded)
+1. **Install APScheduler** - `pip install apscheduler` in `.venv` (scheduler currently skipped with warning)
+2. **Code signing** - Apple Developer ID + Windows signing cert
+3. **Python bundling** - Embed Python runtime in app bundle for distribution
+4. **API base URL** - Make frontend API URL configurable (currently hardcoded)
 
 ### Future Enhancements
 1. MCP server support (OpenBB, file I/O, DuckDB)

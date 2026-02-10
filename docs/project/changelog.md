@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-02-08] - Event Loop Blocking & UI Consistency Fix
+
+### Fixed
+- **ConfigManager deadlock** - `threading.Lock()` replaced with `threading.RLock()` in `config_manager.py`. The non-reentrant lock caused `/api/settings/status` to deadlock on first call, which blocked the onboarding check and made the app display a grey "Starting backend..." screen indefinitely.
+- **Scheduler event loop blocking** - Switched `AsyncIOScheduler` to `BackgroundScheduler` in `scheduler.py`. The async scheduler shared uvicorn's event loop, causing API requests to hang when scheduler jobs ran. `BackgroundScheduler` runs jobs in a thread pool, keeping the event loop free.
+
+### Changed
+- **WatchlistDetail page** - Migrated from hardcoded Tailwind colors to shadcn/ui theme tokens and components:
+  - Replaced `bg-gray-50/white`, `text-gray-*`, `bg-indigo-*` with `bg-background`, `bg-card`, `text-foreground`, `text-muted-foreground`, `text-primary`
+  - Replaced HTML `<button>` elements with shadcn `<Button>` component
+  - Replaced custom modal with shadcn `<Dialog>` component
+  - Replaced raw `<input>` with shadcn `<Input>` and `<Label>`
+- **ProtectedRoute loading state** - Updated to use `bg-background` and `text-muted-foreground` theme tokens
+- **App layout** - Restructured to flex layout with AI sidebar integration
+
 ## [2026-02-08] - Desktop App Migration (Phases 2-6)
 
 ### Added
