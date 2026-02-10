@@ -8,6 +8,39 @@ use tauri_plugin_shell::ShellExt;
 /// Shared handle to the sidecar child process so we can kill it on exit.
 type SidecarChild = Arc<Mutex<Option<CommandChild>>>;
 
+/// Resolve the path to the project's `.venv/bin/python3` so the sidecar uses
+/// the virtual environment (which has all pip dependencies installed).
+fn resolve_venv_python() -> String {
+    // Walk up from the current exe to find .venv/bin/python3
+    if let Ok(exe) = std::env::current_exe() {
+        let mut dir = exe.parent().map(|p| p.to_path_buf());
+        for _ in 0..8 {
+            if let Some(ref d) = dir {
+                let candidate = d.join(".venv").join("bin").join("python3");
+                if candidate.exists() {
+                    return candidate.to_string_lossy().to_string();
+                }
+                dir = d.parent().map(|p| p.to_path_buf());
+            }
+        }
+    }
+    // Walk up from cwd as well
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut dir = Some(cwd);
+        for _ in 0..4 {
+            if let Some(ref d) = dir {
+                let candidate = d.join(".venv").join("bin").join("python3");
+                if candidate.exists() {
+                    return candidate.to_string_lossy().to_string();
+                }
+                dir = d.parent().map(|p| p.to_path_buf());
+            }
+        }
+    }
+    // Fallback to system python3
+    "python3".to_string()
+}
+
 /// Resolve the path to `python-core/server.py` relative to the project root.
 ///
 /// During development (`cargo dev` / `npx tauri dev`) the binary lives inside
@@ -55,12 +88,13 @@ fn resolve_server_script() -> String {
 /// The function watches stdout for the `NIRVANA_BACKEND_READY` sentinel and
 /// emits a `backend-ready` event to the frontend when it appears.
 fn spawn_backend(app: &tauri::App) -> Option<CommandChild> {
+    let python = resolve_venv_python();
     let server_script = resolve_server_script();
-    info!("[sidecar] Launching Python backend: python3 {}", server_script);
+    info!("[sidecar] Launching Python backend: {} {}", python, server_script);
 
     let shell = app.shell();
     let command = shell
-        .command("python3")
+        .command(&python)
         .args([&server_script]);
 
     let (mut rx, child) = match command.spawn() {
@@ -131,7 +165,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::init())
+        // TODO: re-enable updater plugin with proper config
+        // .plugin(tauri_plugin_updater::init())
         .setup(move |app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

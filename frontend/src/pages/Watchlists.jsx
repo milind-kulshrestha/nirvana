@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function Watchlists() {
   const [watchlists, setWatchlists] = useState([]);

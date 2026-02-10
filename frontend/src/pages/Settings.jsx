@@ -8,8 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Eye, EyeOff, CheckCircle, XCircle, Loader2, Settings as SettingsIcon } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 const REFRESH_INTERVALS = [
   { value: 5, label: '5 minutes' },

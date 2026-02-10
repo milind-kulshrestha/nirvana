@@ -12,8 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, TrendingUp, Trash2, User, Settings } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function WatchlistsNew() {
   const [watchlists, setWatchlists] = useState([]);

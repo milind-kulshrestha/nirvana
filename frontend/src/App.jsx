@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
+import useChatStore from './stores/chatStore';
 import LoginNew from './pages/LoginNew';
 import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
@@ -9,16 +10,15 @@ import AISidebar from './components/AISidebar';
 import AIToggleButton from './components/AIToggleButton';
 import StartupScreen from './components/StartupScreen';
 import OnboardingWizard from './components/OnboardingWizard';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from './config';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuthStore();
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -26,20 +26,10 @@ function ProtectedRoute({ children }) {
   return user ? children : <Navigate to="/" replace />;
 }
 
-function AIOverlay() {
-  const { user } = useAuthStore();
-  if (!user) return null;
-  return (
-    <>
-      <AISidebar />
-      <AIToggleButton />
-    </>
-  );
-}
-
 function App() {
   const [backendReady, setBackendReady] = useState(false);
   const { user, checkAuth } = useAuthStore();
+  const { sidebarOpen } = useChatStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [missingKeys, setMissingKeys] = useState([]);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -82,40 +72,45 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AIOverlay />
-      {showOnboarding && (
-        <OnboardingWizard
-          missingKeys={missingKeys}
-          onComplete={() => setShowOnboarding(false)}
-        />
-      )}
-      <Routes>
-        <Route path="/" element={<LoginNew />} />
-        <Route
-          path="/watchlists"
-          element={
-            <ProtectedRoute>
-              <WatchlistsNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/watchlists/:id"
-          element={
-            <ProtectedRoute>
-              <WatchlistDetail />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <div className="flex h-screen w-screen overflow-hidden">
+        <div className={`flex-1 min-w-0 overflow-auto transition-all duration-300`}>
+          {showOnboarding && (
+            <OnboardingWizard
+              missingKeys={missingKeys}
+              onComplete={() => setShowOnboarding(false)}
+            />
+          )}
+          <Routes>
+            <Route path="/" element={<LoginNew />} />
+            <Route
+              path="/watchlists"
+              element={
+                <ProtectedRoute>
+                  <WatchlistsNew />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/watchlists/:id"
+              element={
+                <ProtectedRoute>
+                  <WatchlistDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
+        {user && <AISidebar />}
+        {user && <AIToggleButton />}
+      </div>
     </BrowserRouter>
   );
 }

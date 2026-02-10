@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 const useChatStore = create((set, get) => ({
   // State
@@ -10,7 +9,7 @@ const useChatStore = create((set, get) => ({
   isStreaming: false,
   pendingActions: [],
   error: null,
-  sidebarOpen: false,
+  sidebarOpen: true,
 
   // Sidebar
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

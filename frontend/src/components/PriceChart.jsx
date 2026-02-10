@@ -10,8 +10,7 @@ import {
 } from 'recharts';
 import { useAISerializable } from '../hooks/useAISerializable';
 import SendToAIButton from './SendToAIButton';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 export default function PriceChart({ symbol }) {
   const [data, setData] = useState([]);
@@ -68,7 +67,7 @@ export default function PriceChart({ symbol }) {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+      <div className="bg-white rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{symbol} Chart</h3>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading chart...</div>
@@ -79,7 +78,7 @@ export default function PriceChart({ symbol }) {
 
   if (error || !data || data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+      <div className="bg-white rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{symbol} Chart</h3>
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">
@@ -105,7 +104,7 @@ export default function PriceChart({ symbol }) {
   const lineColor = isPositive ? '#10b981' : '#ef4444';
 
   return (
-    <div ref={chartRef} className="bg-white rounded-lg shadow-sm p-6 sticky top-4">
+    <div ref={chartRef} className="bg-white rounded-lg p-6">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>

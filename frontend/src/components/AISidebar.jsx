@@ -53,7 +53,7 @@ export default function AISidebar() {
   if (!sidebarOpen) return null;
 
   return (
-    <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200 transition-transform duration-300">
+    <div className="h-full w-96 flex-shrink-0 bg-white shadow-2xl z-30 flex flex-col border-l border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
         <div className="flex items-center gap-2">

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "identifier": "app.nirvana.desktop",
   "build": {
+    "beforeDevCommand": "npm run dev",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173"
   },
@@ -25,24 +26,7 @@
   },
   "plugins": {
     "shell": {
-      "scope": [
-        {
-          "name": "python-backend",
-          "cmd": "python3",
-          "args": [
-            {
-              "validator": ".*server\\.py$"
-            }
-          ],
-          "sidecar": false
-        }
-      ]
-    },
-    "updater": {
-      "pubkey": "PLACEHOLDER_PUBLIC_KEY",
-      "endpoints": [
-        "https://github.com/YOUR_OWNER/nirvana/releases/latest/download/latest.json"
-      ]
+      "open": true
     }
   },
   "bundle": {

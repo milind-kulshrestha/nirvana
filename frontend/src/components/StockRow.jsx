@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { useAISerializable } from '../hooks/useAISerializable';
 import SendToAIButton from './SendToAIButton';
+import PriceChart from './PriceChart';
 
-export default function StockRow({ item, onRemove, onSelect, isSelected }) {
+export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
   const quote = item.quote || {};
   const ma200 = item.ma_200;
   const price = quote.price || 0;
@@ -70,12 +71,27 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
   return (
     <div
       ref={ref}
-      onClick={onSelect}
-      className={`bg-white rounded-lg shadow-sm p-4 border-2 transition cursor-pointer ${
-        isSelected ? 'border-indigo-500' : 'border-transparent hover:border-gray-200'
+      className={`bg-white rounded-lg shadow-sm border-2 transition ${
+        isExpanded ? 'border-indigo-500' : 'border-transparent hover:border-gray-200'
       }`}
     >
-      <div className="flex items-center justify-between">
+      {/* Clickable stock bar */}
+      <div
+        onClick={onToggle}
+        className="flex items-center justify-between p-4 cursor-pointer"
+      >
+        {/* Chevron toggle */}
+        <div className="mr-3 text-gray-400">
+          <svg
+            className={`w-5 h-5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+
         {/* Symbol and Name */}
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -135,8 +151,15 @@ export default function StockRow({ item, onRemove, onSelect, isSelected }) {
 
       {/* Additional Info */}
       {ma200 && (
-        <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500">
+        <div className="mx-4 pb-2 pt-0 border-t border-gray-100 text-xs text-gray-500">
           200-day MA: ${ma200.toFixed(2)}
+        </div>
+      )}
+
+      {/* Expandable dropdown panel */}
+      {isExpanded && (
+        <div className="border-t border-gray-200 p-4">
+          <PriceChart symbol={item.symbol} />
         </div>
       )}
     </div>

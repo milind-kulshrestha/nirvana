@@ -1,21 +1,23 @@
 """
 Background scheduler for market data refresh.
 
-Uses APScheduler to periodically fetch and cache market data so that
-user-facing requests can be served from DuckDB instead of hitting the
-API every time.
+Uses APScheduler's BackgroundScheduler to periodically fetch and cache market
+data so that user-facing requests can be served from DuckDB instead of hitting
+the API every time.
+
+The BackgroundScheduler runs jobs in a thread pool, keeping uvicorn's async
+event loop free to handle HTTP requests.
 
 Jobs:
   1. refresh_quotes  - every 15 min during market hours (9:30-16:00 ET, weekdays)
   2. daily_snapshot  - 6:00 PM ET on weekdays (end-of-day prices)
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,7 @@ def _get_all_watchlist_symbols() -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-async def refresh_quotes() -> None:
+def refresh_quotes() -> None:
     """Fetch fresh quotes for every watchlist symbol and cache them."""
     try:
         symbols = _get_all_watchlist_symbols()
@@ -58,8 +60,7 @@ async def refresh_quotes() -> None:
 
         for symbol in symbols:
             try:
-                # get_quote now caches automatically
-                await asyncio.to_thread(get_quote, symbol)
+                get_quote(symbol)
             except Exception:
                 logger.warning("Scheduler: failed to refresh quote for %s", symbol)
     except Exception:
@@ -71,7 +72,7 @@ async def refresh_quotes() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def daily_snapshot() -> None:
+def daily_snapshot() -> None:
     """Fetch end-of-day prices for all watchlist symbols and cache them."""
     try:
         symbols = _get_all_watchlist_symbols()
@@ -84,9 +85,7 @@ async def daily_snapshot() -> None:
 
         for symbol in symbols:
             try:
-                # Fetch last 12 months to keep the daily_prices cache deep
-                # enough for MA-200 calculations.
-                await asyncio.to_thread(get_history, symbol, 12)
+                get_history(symbol, 12)
             except Exception:
                 logger.warning("Scheduler: failed daily snapshot for %s", symbol)
     except Exception:
@@ -97,7 +96,7 @@ async def daily_snapshot() -> None:
 # Scheduler instance
 # ---------------------------------------------------------------------------
 
-scheduler = AsyncIOScheduler(timezone=ET)
+scheduler = BackgroundScheduler(timezone=ET)
 
 # Job 1: every 15 minutes, Mon-Fri, 9:30 AM - 3:45 PM ET
 # (last run at 3:45 so data is fresh through close at 4:00)

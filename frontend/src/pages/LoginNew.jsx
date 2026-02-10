@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,15 @@ export default function LoginNew() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, register, loading, error, clearError } = useAuthStore();
+  const { user, login, register, loading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
+
+  // Auto-redirect if already authenticated (e.g. single-user mode)
+  useEffect(() => {
+    if (user) {
+      navigate('/watchlists', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

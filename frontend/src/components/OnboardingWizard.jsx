@@ -4,8 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
-
-const API_BASE = 'http://localhost:8000';
+import { API_BASE } from '../config';
 
 const STEPS = [
   {

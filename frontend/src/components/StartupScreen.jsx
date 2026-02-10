@@ -1,13 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from './ui/button';
 
 const HEALTH_URL = 'http://localhost:6900/health';
-const POLL_INTERVAL = 500;
-const TIMEOUT_MS = 15000;
+const POLL_INTERVAL = 1000;
+const TIMEOUT_MS = 60000;
 
 export default function StartupScreen({ onReady }) {
   const [status, setStatus] = useState('connecting'); // 'connecting' | 'ready' | 'error'
   const [fadeOut, setFadeOut] = useState(false);
+  const readyFired = useRef(false);
+
+  const markReady = useCallback(() => {
+    if (readyFired.current) return;
+    readyFired.current = true;
+    setStatus('ready');
+    setFadeOut(true);
+    setTimeout(() => onReady(), 400);
+  }, [onReady]);
 
   const checkHealth = useCallback(async () => {
     try {
@@ -25,15 +34,14 @@ export default function StartupScreen({ onReady }) {
   const startPolling = useCallback(() => {
     setStatus('connecting');
     setFadeOut(false);
+    readyFired.current = false;
 
     const startTime = Date.now();
     const interval = setInterval(async () => {
       const healthy = await checkHealth();
       if (healthy) {
         clearInterval(interval);
-        setStatus('ready');
-        setFadeOut(true);
-        setTimeout(() => onReady(), 400);
+        markReady();
         return;
       }
       if (Date.now() - startTime > TIMEOUT_MS) {
@@ -43,7 +51,23 @@ export default function StartupScreen({ onReady }) {
     }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [checkHealth, onReady]);
+  }, [checkHealth, markReady]);
+
+  // Listen for Tauri backend-ready event (fires when sidecar emits NIRVANA_BACKEND_READY)
+  useEffect(() => {
+    let unlisten;
+    (async () => {
+      try {
+        const { listen } = await import('@tauri-apps/api/event');
+        unlisten = await listen('backend-ready', () => {
+          markReady();
+        });
+      } catch {
+        // Not running inside Tauri (e.g. plain browser dev), ignore
+      }
+    })();
+    return () => { if (unlisten) unlisten(); };
+  }, [markReady]);
 
   useEffect(() => {
     const cleanup = startPolling();
@@ -73,7 +97,7 @@ export default function StartupScreen({ onReady }) {
         {status === 'error' && (
           <div className="flex flex-col items-center gap-4">
             <p className="text-sm text-destructive">
-              Backend failed to start within 15 seconds.
+              Backend failed to start within 60 seconds.
             </p>
             <Button variant="outline" onClick={startPolling}>
               Retry

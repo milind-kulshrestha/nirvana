@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import StockRow from '../components/StockRow';
-import PriceChart from '../components/PriceChart';
-
-const API_BASE = 'http://localhost:8000';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '../components/ui/dialog';
+import { API_BASE } from '../config';
 
 export default function WatchlistDetail() {
   const { id } = useParams();
@@ -14,7 +23,7 @@ export default function WatchlistDetail() {
   const [newSymbol, setNewSymbol] = useState('');
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedStock, setSelectedStock] = useState(null);
+  const [expandedStockId, setExpandedStockId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -132,8 +141,8 @@ export default function WatchlistDetail() {
 
       if (response.ok) {
         setItems(items.filter((item) => item.id !== itemId));
-        if (selectedStock?.id === itemId) {
-          setSelectedStock(null);
+        if (expandedStockId === itemId) {
+          setExpandedStockId(null);
         }
       }
     } catch (error) {
@@ -143,43 +152,40 @@ export default function WatchlistDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-card border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 to="/watchlists"
-                className="text-gray-600 hover:text-gray-900"
+                className="text-muted-foreground hover:text-foreground"
               >
                 ← Back
               </Link>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-foreground">
                 {watchlist?.name || 'Watchlist'}
               </h1>
             </div>
             <div className="flex gap-3">
-              <button
+              <Button
+                variant="secondary"
                 onClick={refreshStocks}
                 disabled={refreshing}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
               >
                 {refreshing ? 'Refreshing...' : '↻ Refresh'}
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition"
-              >
+              </Button>
+              <Button onClick={() => setShowAddModal(true)}>
                 + Add Stock
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -187,103 +193,92 @@ export default function WatchlistDetail() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Stocks List */}
-          <div className="lg:col-span-2">
-            {items.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <p className="text-gray-500 mb-4">No stocks in this watchlist</p>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="text-indigo-600 hover:text-indigo-700 font-medium"
-                >
-                  Add your first stock
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <StockRow
-                    key={item.id}
-                    item={item}
-                    onRemove={() => removeStock(item.id)}
-                    onSelect={() => setSelectedStock(item)}
-                    isSelected={selectedStock?.id === item.id}
-                  />
-                ))}
-              </div>
-            )}
-
-            {items.length >= 50 && (
-              <div className="mt-4 text-center text-sm text-gray-500">
-                Maximum stocks reached (50/50)
-              </div>
-            )}
+        {items.length === 0 ? (
+          <div className="bg-card rounded-lg border p-12 text-center">
+            <p className="text-muted-foreground mb-4">No stocks in this watchlist</p>
+            <Button
+              variant="link"
+              onClick={() => setShowAddModal(true)}
+            >
+              Add your first stock
+            </Button>
           </div>
-
-          {/* Chart Panel */}
-          <div className="lg:col-span-1">
-            {selectedStock ? (
-              <PriceChart symbol={selectedStock.symbol} />
-            ) : (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center sticky top-4">
-                <p className="text-gray-500">Select a stock to view chart</p>
-              </div>
-            )}
+        ) : (
+          <div className="space-y-2">
+            {items.map((item) => (
+              <StockRow
+                key={item.id}
+                item={item}
+                onRemove={() => removeStock(item.id)}
+                onToggle={() => setExpandedStockId(expandedStockId === item.id ? null : item.id)}
+                isExpanded={expandedStockId === item.id}
+              />
+            ))}
           </div>
-        </div>
+        )}
+
+        {items.length >= 50 && (
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            Maximum stocks reached (50/50)
+          </div>
+        )}
       </main>
 
-      {/* Add Stock Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Add Stock</h2>
-            <form onSubmit={addStock}>
-              <input
-                type="text"
-                value={newSymbol}
-                onChange={(e) => setNewSymbol(e.target.value)}
-                placeholder="Ticker symbol (e.g., AAPL, MSFT)"
-                required
-                maxLength={20}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none mb-2"
-                autoFocus
-              />
-              <p className="text-xs text-gray-500 mb-4">
-                Enter a valid stock ticker symbol
-              </p>
+      {/* Add Stock Dialog */}
+      <Dialog open={showAddModal} onOpenChange={(open) => {
+        setShowAddModal(open);
+        if (!open) {
+          setNewSymbol('');
+          setError(null);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Stock</DialogTitle>
+            <DialogDescription>
+              Enter a valid stock ticker symbol to add to this watchlist.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={addStock}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="symbol">Ticker Symbol</Label>
+                <Input
+                  id="symbol"
+                  value={newSymbol}
+                  onChange={(e) => setNewSymbol(e.target.value)}
+                  placeholder="e.g., AAPL, MSFT"
+                  required
+                  maxLength={20}
+                  autoFocus
+                />
+              </div>
 
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm mb-4">
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
                   {error}
                 </div>
               )}
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setNewSymbol('');
-                    setError(null);
-                  }}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={adding}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition disabled:opacity-50"
-                >
-                  {adding ? 'Adding...' : 'Add'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddModal(false);
+                  setNewSymbol('');
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={adding}>
+                {adding ? 'Adding...' : 'Add'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,0 +1,30 @@
+# Update Project Status
+
+After significant work, update docs/project/status.md:
+
+1. Update completion percentage for active milestones
+2. Move completed items to "Accomplished" section  
+3. Update "Last Updated" timestamp
+4. Add any new blockers or dependencies
+5. Suggest next priority tasks based on progress
+
+Format:
+```markdown
+# Project: [Name]
+**Last Updated:** [ISO Date]
+
+## Current Milestone: [Name] (X% complete)
+- [ ] Task 1
+- [x] Completed task
+- [ ] Task 3
+
+## Accomplished This Session
+- Specific achievement 1
+- Specific achievement 2
+
+## Next Priorities
+1. Highest priority
+2. Second priority
+
+## Blockers
+- None / [Specific blocker]

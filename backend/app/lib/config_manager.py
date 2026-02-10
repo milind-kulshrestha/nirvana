@@ -25,7 +25,7 @@ class ConfigManager:
     """Thread-safe manager for ~/.nirvana/config.json."""
 
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._cache: dict[str, Any] = {}
         self._loaded = False
 
