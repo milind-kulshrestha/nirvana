@@ -4,7 +4,10 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 
-from app.lib.openbb import get_quote, get_ma_200, get_history, SymbolNotFoundError, OpenBBTimeoutError
+from app.lib.openbb import (
+    get_quote, get_ma_200, get_history, get_ohlcv, get_performance, get_estimates,
+    SymbolNotFoundError, OpenBBTimeoutError,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,12 +26,40 @@ class HistoryData(BaseModel):
     close: float
 
 
+class OHLCVData(BaseModel):
+    date: str
+    open: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
+    close: float
+    volume: Optional[int] = None
+
+
+class PerformanceData(BaseModel):
+    one_day_return: Optional[float] = None
+    one_week_return: Optional[float] = None
+    one_month_return: Optional[float] = None
+    three_month_return: Optional[float] = None
+    six_month_return: Optional[float] = None
+    ytd_return: Optional[float] = None
+    one_year_return: Optional[float] = None
+
+
+class EstimatesData(BaseModel):
+    consensus_type: Optional[str] = None
+    consensus_rating: Optional[float] = None
+    target_price: Optional[float] = None
+
+
 class SecurityResponse(BaseModel):
     symbol: str
     name: Optional[str] = None
     quote: Optional[QuoteData] = None
     ma_200: Optional[float] = None
     history: Optional[list[HistoryData]] = None
+    ohlcv: Optional[list[OHLCVData]] = None
+    performance: Optional[PerformanceData] = None
+    estimates: Optional[EstimatesData] = None
 
 
 @router.get("/{symbol}", response_model=SecurityResponse)
@@ -38,7 +69,8 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
 
     Args:
         symbol: Stock ticker symbol
-        include: Comma-separated list of data to include (quote, ma200, history)
+        include: Comma-separated list of data to include
+                 (quote, ma200, history, ohlcv, performance, estimates)
 
     Returns:
         Security data based on include parameter
@@ -95,6 +127,39 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
             except OpenBBTimeoutError as e:
                 logger.warning(f"History fetch timed out for {symbol}: {e}")
                 # Don't fail entire request for timeout
+
+        # Fetch OHLCV data
+        if "ohlcv" in include_parts:
+            try:
+                ohlcv_data = get_ohlcv(symbol)
+                response_data["ohlcv"] = [OHLCVData(**item) for item in ohlcv_data]
+                has_data = True
+            except SymbolNotFoundError as e:
+                logger.warning(f"OHLCV fetch failed for {symbol}: {e}")
+            except OpenBBTimeoutError as e:
+                logger.warning(f"OHLCV fetch timed out for {symbol}: {e}")
+
+        # Fetch performance data
+        if "performance" in include_parts:
+            try:
+                perf_data = get_performance(symbol)
+                response_data["performance"] = PerformanceData(**perf_data)
+                has_data = True
+            except SymbolNotFoundError as e:
+                logger.warning(f"Performance fetch failed for {symbol}: {e}")
+            except OpenBBTimeoutError as e:
+                logger.warning(f"Performance fetch timed out for {symbol}: {e}")
+
+        # Fetch estimates data
+        if "estimates" in include_parts:
+            try:
+                est_data = get_estimates(symbol)
+                response_data["estimates"] = EstimatesData(**est_data)
+                has_data = True
+            except SymbolNotFoundError as e:
+                logger.warning(f"Estimates fetch failed for {symbol}: {e}")
+            except OpenBBTimeoutError as e:
+                logger.warning(f"Estimates fetch timed out for {symbol}: {e}")
 
         return SecurityResponse(**response_data)
 

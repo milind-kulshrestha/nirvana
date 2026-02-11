@@ -6,6 +6,7 @@ import LoginNew from './pages/LoginNew';
 import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
 import Settings from './pages/Settings';
+import Discover from './pages/Discover';
 import AISidebar from './components/AISidebar';
 import AIToggleButton from './components/AIToggleButton';
 import StartupScreen from './components/StartupScreen';
@@ -95,6 +96,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <WatchlistDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/discover"
+              element={
+                <ProtectedRoute>
+                  <Discover />
                 </ProtectedRoute>
               }
             />

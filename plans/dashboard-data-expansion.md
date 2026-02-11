@@ -388,9 +388,9 @@ Verified on current FMP API key (free tier). These endpoints are **blocked** (40
 
 ---
 
-## Open Questions
+## Design Decisions (Resolved)
 
-1. **Market Discovery placement** — New top-level page, or a section within the existing dashboard?
-2. **Calendar scope** — Market-wide calendar, or filtered to watchlist symbols only?
-3. **OHLCV chart library** — Stick with Recharts (add bar chart for volume), or switch to a candlestick-capable library (e.g., lightweight-charts)?
-4. **Performance tiles** — Show in `StockRow` inline, or in the expanded panel below the chart?
+1. **Market Discovery placement** — **New top-level page at `/discover`**. Separate nav entry alongside Watchlists and Settings. Market-wide browsing is conceptually different from personal watchlists. Each row gets an "Add to Watchlist" action.
+2. **Calendar scope** — **Watchlist-filtered by default, toggle for market-wide**. Backend fetches full market calendar and caches it. Frontend cross-filters against user's watchlist symbols client-side. Toggle switches between "My Stocks" and "All" views.
+3. **OHLCV chart library** — **Switch to TradingView Lightweight Charts** (`lightweight-charts` npm). Native candlestick + volume histogram, 45KB bundle (vs ~200KB Recharts), purpose-built for financial data. Requires TradingView attribution link. PriceChart.jsx is the only Recharts consumer so migration is contained.
+4. **Performance tiles** — **Expanded panel below the chart**. StockRow stays focused (quote + MA200 badge + EstimatesBadge). PerformanceTiles shown in expanded panel alongside the candlestick chart, following the existing progressive-disclosure pattern.

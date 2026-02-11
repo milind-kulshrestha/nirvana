@@ -125,9 +125,22 @@ export default function WatchlistsNew() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">My Watchlists</h1>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold tracking-tight">My Watchlists</h1>
+            </div>
+            <nav className="hidden sm:flex items-center gap-1 text-sm">
+              <span className="px-3 py-1.5 rounded-md bg-accent text-foreground font-medium">
+                Watchlists
+              </span>
+              <Link
+                to="/discover"
+                className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+              >
+                Discover
+              </Link>
+            </nav>
           </div>
 
           {/* User Menu */}
