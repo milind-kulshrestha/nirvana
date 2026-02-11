@@ -27,7 +27,8 @@ backend/
 │   ├── routes/          # API endpoints
 │   │   ├── auth.py      # Authentication endpoints
 │   │   ├── watchlists.py # Watchlist CRUD
-│   │   ├── securities.py # Market data
+│   │   ├── securities.py # Market data (quote, OHLCV, performance, estimates)
+│   │   ├── market.py    # Market discovery + calendar
 │   │   ├── chat.py      # AI chat SSE streaming
 │   │   ├── skills.py    # AI skills CRUD
 │   │   └── settings.py  # Settings API + first-run detection
@@ -66,7 +67,7 @@ backend/
 ### `app/main.py`
 - FastAPI app initialization
 - CORS middleware configuration
-- Router registration (/api/auth, /api/watchlists, /api/securities, /api/chat, /api/skills)
+- Router registration (/api/auth, /api/watchlists, /api/securities, /api/market, /api/chat, /api/skills)
 - OpenBB startup configuration (writes FMP_API_KEY to ~/.openbb_platform/user_settings.json)
 
 ### `app/config.py`
@@ -154,8 +155,15 @@ Environment-based settings:
 - `DELETE /api/watchlists/{id}/items/{item_id}` - Remove stock
 
 ### Securities (`app/routes/securities.py`)
-- `GET /api/securities/{symbol}?include=quote,ma200,history`
+- `GET /api/securities/{symbol}?include=quote,ma200,history,ohlcv,performance,estimates`
 - Returns market data based on include parameter
+- `ohlcv` - 1-year OHLCV daily bars (open, high, low, close, volume)
+- `performance` - Multi-period returns (1D, 1W, 1M, 3M, 6M, YTD, 1Y)
+- `estimates` - Analyst consensus (type, rating, target price)
+
+### Market (`app/routes/market.py`)
+- `GET /api/market/movers?category=active|gainers|losers` - Market movers (15-min cache)
+- `GET /api/market/calendar?type=earnings|dividends&days=30` - Calendar events (1h cache)
 
 ## Utilities
 
@@ -185,6 +193,29 @@ OpenBB SDK integration with DuckDB cache layer:
   - Falls back to `obb.equity.price.historical(symbol, provider="fmp")`
   - Caches full OHLCV data on fetch
 
+- `get_ohlcv(symbol, days=365)` - Returns list of `{date, open, high, low, close, volume}`
+  - Full OHLCV bars for candlestick charts
+  - DuckDB cache with same pattern as get_history
+
+- `get_performance(symbol)` - Returns multi-period return summary
+  - Uses `obb.equity.price.performance(symbol, provider="fmp")`
+  - Returns: one_day_return through one_year_return
+  - Cached as quote (15-min TTL) with key `{SYMBOL}:performance`
+
+- `get_estimates(symbol)` - Returns analyst consensus data
+  - Uses `obb.equity.estimates.consensus(symbol, provider="fmp")`
+  - Returns: consensus_type, consensus_rating, target_price
+  - Cached as fundamentals (24h TTL) with key `{SYMBOL}:estimates`
+
+- `get_market_movers(category)` - Returns top market movers
+  - Uses `obb.equity.discovery.{active|gainers|losers}(provider="fmp")`
+  - Returns list of: symbol, name, price, change, change_percent, volume
+  - Cached as quote (15-min TTL) with key `_discovery:{category}`
+
+- `get_calendar_events(event_type, days_ahead)` - Returns upcoming events
+  - Uses `obb.equity.calendar.{earnings|dividend}(provider="fmp")`
+  - Cached as quote (1h TTL via get_cached_quote_with_ttl) with key `_calendar:{type}`
+
 All cache operations wrapped in try/except for graceful degradation if DuckDB is unavailable.
 
 **Error Handling:**
@@ -194,6 +225,7 @@ All cache operations wrapped in try/except for graceful degradation if DuckDB is
 ### `app/lib/market_cache.py`
 DuckDB-based market data cache at `~/.nirvana/market_data.duckdb`:
 - `get_cached_quote()` / `cache_quote()` - Quote snapshots (15 min TTL)
+- `get_cached_quote_with_ttl(key, ttl_minutes)` - Quote cache with custom TTL (used by calendar)
 - `get_cached_history()` / `cache_history()` - Daily OHLCV prices
 - `get_cached_fundamentals()` / `cache_fundamentals()` - Fundamentals (24h TTL)
 - Thread-safe singleton connection with lazy init

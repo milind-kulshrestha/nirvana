@@ -1,15 +1,19 @@
 # Project Status
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-11
 
-## Current Status: Desktop App Migration Complete (All Phases)
+## Current Status: Dashboard Data Expansion Complete
 
-Nirvana has completed the full migration from web app to native desktop application. All 7 phases (0-6) are implemented.
+Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
 
-### Latest Accomplishments (2026-02-08)
-- ✅ **Critical Bug Fix: ConfigManager Deadlock** - `threading.Lock` → `threading.RLock` fixed deadlock that caused grey screen on startup
-- ✅ **Critical Bug Fix: Event Loop Blocking** - `AsyncIOScheduler` → `BackgroundScheduler` prevents API hangs during scheduler jobs
-- ✅ **UI Consistency: WatchlistDetail** - Migrated to shadcn/ui components (Button, Dialog, Input, Label) and theme tokens
+### Latest Accomplishments (2026-02-11)
+- ✅ **OHLCV Candlestick Charts** - Replaced Recharts with TradingView Lightweight Charts (candlestick + volume)
+- ✅ **Performance Tiles** - Multi-period return heatmap (1D through 1Y) in expanded panel
+- ✅ **Analyst Estimates** - Consensus Buy/Hold/Sell badge with target price delta inline in StockRow
+- ✅ **Market Discovery Page** - New `/discover` route with Most Active / Gainers / Losers tables
+- ✅ **Calendar Widget** - Earnings & dividends calendar with watchlist filtering
+- ✅ **Market API Routes** - `GET /api/market/movers` and `GET /api/market/calendar`
+- ✅ **Navigation** - Cross-navigation between Watchlists and Discover pages
 - ✅ **Phase 2: Python Sidecar** - Auto-start/stop backend from Tauri
   - Sidecar wrapper with readiness signal
   - Rust lifecycle management (spawn on launch, kill on exit)
@@ -35,7 +39,9 @@ Nirvana has completed the full migration from web app to native desktop applicat
 - ✅ Add/remove stocks to watchlists
 - ✅ Real-time stock quotes
 - ✅ 200-day moving average indicators
-- ✅ 6-month price history charts
+- ✅ OHLCV candlestick charts (TradingView Lightweight Charts)
+- ✅ Multi-period performance tiles (1D/1W/1M/3M/6M/YTD/1Y)
+- ✅ Analyst consensus estimates (Buy/Hold/Sell badge)
 - ✅ Responsive UI with shadcn/ui components
 - ✅ Secure session-based authentication (or single-user bypass)
 - ✅ **Database Flexibility**
@@ -55,6 +61,11 @@ Nirvana has completed the full migration from web app to native desktop applicat
   - ✅ DuckDB cache (quotes, daily prices, fundamentals)
   - ✅ Background scheduler (quote refresh, daily snapshots)
   - ✅ Cache-first API pattern with graceful fallback
+- ✅ **Market Discovery & Calendar**
+  - ✅ Market movers: Most Active, Top Gainers, Top Losers
+  - ✅ Upcoming calendar: earnings and dividends
+  - ✅ Watchlist-filtered and market-wide views
+  - ✅ Discover page with integrated calendar sidebar
 - ✅ **AI Agent Integration**
   - ✅ Conversational AI assistant powered by Claude
   - ✅ Stock research and analysis tools
@@ -72,7 +83,7 @@ Nirvana has completed the full migration from web app to native desktop applicat
 - **Frontend**: React 19 + Vite + TailwindCSS + shadcn/ui
 - **Desktop Shell**: Tauri v2 (Rust + WebView)
 - **State**: Zustand for auth and AI chat management
-- **Charts**: Recharts for price visualization
+- **Charts**: TradingView Lightweight Charts for candlestick + volume visualization
 - **Market Data**: OpenBB SDK with FMP provider + DuckDB cache
 - **Caching**: DuckDB for market data, APScheduler for background refresh
 - **Auth**: Session cookies (or single-user bypass) with itsdangerous + bcrypt
@@ -101,6 +112,17 @@ Nirvana has completed the full migration from web app to native desktop applicat
 ## Milestone History
 
 ### Completed Milestones
+
+#### Milestone 7: Dashboard Data Expansion (Feb 11, 2026) ✅
+- OHLCV candlestick charts with TradingView Lightweight Charts (replacing Recharts)
+- Multi-period performance tiles (heatmap-style 1D-1Y returns)
+- Analyst consensus estimates badge (Buy/Hold/Sell + target price)
+- Market Discovery page at `/discover` with movers tables + calendar sidebar
+- Calendar widget with earnings/dividends tabs and watchlist filtering
+- 5 new backend functions: get_ohlcv, get_performance, get_estimates, get_market_movers, get_calendar_events
+- New `/api/market/movers` and `/api/market/calendar` endpoints
+- Extended securities API with ohlcv, performance, estimates include options
+- Cross-navigation between Watchlists and Discover pages
 
 #### Milestone 6: Desktop App Migration - Phases 2-6 (Feb 8, 2026) ✅
 - Python sidecar with auto-start/stop from Tauri (readiness signal, graceful shutdown)

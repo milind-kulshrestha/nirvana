@@ -6,6 +6,44 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-02-11] - Dashboard Data Expansion
+
+### Added
+- **OHLCV Candlestick Charts** - Replaced Recharts line chart with TradingView Lightweight Charts
+  - `CandlestickChart.jsx` component with candlestick + volume histogram overlay
+  - `get_ohlcv()` backend function with DuckDB cache (1-year daily bars)
+  - ResizeObserver for responsive chart sizing
+  - TradingView attribution link
+- **Multi-Period Performance Tiles** - Heatmap-style return badges in expanded panel
+  - `PerformanceTiles.jsx` showing 1D/1W/1M/3M/6M/YTD/1Y returns
+  - `get_performance()` backend function via OpenBB price.performance (15-min cache)
+  - Color-coded: green shades for positive, red shades for negative
+- **Analyst Estimates Badge** - Inline consensus pill in StockRow
+  - `EstimatesBadge.jsx` showing Buy/Hold/Sell with target price delta
+  - `get_estimates()` backend function via OpenBB estimates.consensus (24h cache)
+- **Market Discovery Page** - New `/discover` route for market-wide browsing
+  - Tabbed view: Most Active, Top Gainers, Top Losers
+  - `get_market_movers()` backend function via OpenBB equity.discovery (15-min cache)
+  - `GET /api/market/movers?category=active|gainers|losers` endpoint
+  - Watchlist symbol highlighting with "WL" badge
+  - Calendar sidebar integration
+- **Calendar Widget** - Upcoming earnings and dividend events
+  - `CalendarWidget.jsx` with Earnings/Dividends tabs
+  - Watchlist-filtered view ("My Stocks") with toggle to "All"
+  - `get_calendar_events()` backend function via OpenBB equity.calendar (1h cache)
+  - `GET /api/market/calendar?type=earnings|dividends&days=30` endpoint
+  - Countdown badges for events within 7 days
+- **Navigation** - Watchlists <-> Discover cross-navigation in page headers
+
+### Changed
+- `StockRow.jsx` - Lazy-loads OHLCV, performance, and estimates on expand (separate API call)
+- `securities.py` - Extended `?include=` parameter to support `ohlcv`, `performance`, `estimates`
+- `market_cache.py` - Added `get_cached_quote_with_ttl()` for configurable TTL
+- `main.py` - Registered new market router at `/api/market`
+
+### Dependencies Added
+- Frontend: `lightweight-charts` (TradingView Lightweight Charts, ~45KB)
+
 ## [2026-02-08] - Event Loop Blocking & UI Consistency Fix
 
 ### Fixed

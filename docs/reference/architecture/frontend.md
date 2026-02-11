@@ -7,7 +7,7 @@
 - **Routing**: React Router v7
 - **Styling**: TailwindCSS + shadcn/ui
 - **State Management**: Zustand (auth, AI chat)
-- **Charts**: Recharts
+- **Charts**: TradingView Lightweight Charts (candlestick + volume)
 - **UI Components**: Radix UI primitives
 - **AI Integration**: SSE streaming with EventSource
 
@@ -27,12 +27,17 @@ frontend/src/
 │   │   ├── AISidebar.jsx        # Chat interface
 │   │   ├── AIToggleButton.jsx   # Floating toggle
 │   │   └── SendToAIButton.jsx   # Context capture button
-│   ├── PriceChart.jsx   # 6-month price history chart
-│   └── StockRow.jsx     # Individual stock display
+│   ├── PriceChart.jsx       # Legacy line chart (replaced by CandlestickChart)
+│   ├── CandlestickChart.jsx # OHLCV candlestick + volume chart (Lightweight Charts)
+│   ├── PerformanceTiles.jsx # Multi-period return heatmap tiles
+│   ├── EstimatesBadge.jsx   # Analyst consensus pill badge
+│   ├── CalendarWidget.jsx   # Earnings/dividends calendar widget
+│   └── StockRow.jsx         # Individual stock display with expanded panel
 ├── pages/
 │   ├── LoginNew.jsx     # Login/register page
 │   ├── WatchlistsNew.jsx # Watchlist list
-│   └── WatchlistDetail.jsx # Watchlist view
+│   ├── WatchlistDetail.jsx # Watchlist view
+│   └── Discover.jsx     # Market discovery + calendar
 ├── stores/
 │   ├── authStore.js     # Zustand auth state
 │   ├── aiChatStore.js   # Zustand AI chat state
@@ -56,6 +61,8 @@ frontend/src/
   - `/` - LoginNew (public)
   - `/watchlists` - WatchlistsNew (protected)
   - `/watchlists/:id` - WatchlistDetail (protected)
+  - `/discover` - Discover (protected)
+  - `/settings` - Settings (protected)
 
 ### `stores/authStore.js`
 Zustand store for authentication state:
@@ -146,6 +153,14 @@ const componentId = useAISerializable(() => ({
 - User dropdown menu with logout
 - Empty state for new users
 
+### Discover (`pages/Discover.jsx`)
+- Market discovery page with movers table and calendar sidebar
+- Three tabs: Most Active, Top Gainers, Top Losers
+- Fetches from `/api/market/movers`
+- Highlights stocks already in user's watchlists
+- Integrated CalendarWidget in sidebar
+- Cross-navigation to Watchlists page
+
 ### WatchlistDetail (`pages/WatchlistDetail.jsx`)
 - Displays stocks in a watchlist
 - Add stock by ticker symbol
@@ -158,22 +173,38 @@ const componentId = useAISerializable(() => ({
 
 ### StockRow (`components/StockRow.jsx`)
 - Displays single stock with live data
-- Fetches quote, MA200, and 6-month history from `/api/securities/{symbol}`
-- Shows:
-  - Symbol and current price
-  - Price change (colored red/green)
-  - 200-day moving average
-  - Volume
-  - Price chart (via PriceChart component)
-- Remove button
+- Collapsed bar: symbol, price, change, volume, MA200 badge, estimates badge
+- Expanded panel: lazy-loads OHLCV, performance, and estimates via separate API call
+  - `CandlestickChart` for OHLCV data
+  - `PerformanceTiles` for multi-period returns
+- Remove button and AI context button
 - Loading state with skeleton UI
 
+### CandlestickChart (`components/CandlestickChart.jsx`)
+- OHLCV candlestick chart using TradingView Lightweight Charts
+- Volume histogram overlay with color-coded bars
+- ResizeObserver for responsive container sizing
+- AI-serializable for context capture
+- TradingView attribution link (required)
+
+### PerformanceTiles (`components/PerformanceTiles.jsx`)
+- Heatmap-style period return badges (1D/1W/1M/3M/6M/YTD/1Y)
+- Color-coded: green shades for positive, red shades for negative
+- Only renders periods with available data
+
+### EstimatesBadge (`components/EstimatesBadge.jsx`)
+- Compact pill showing analyst consensus (Strong Buy/Buy/Hold/Sell/Strong Sell)
+- Shows target price delta as percentage
+- Tooltip with exact target price
+
+### CalendarWidget (`components/CalendarWidget.jsx`)
+- Tabbed view: Earnings and Dividends
+- "My Stocks" / "All" filter toggle (client-side filtering against watchlist symbols)
+- Countdown badges for events within 7 days
+- Scrollable event list with watchlist highlighting
+
 ### PriceChart (`components/PriceChart.jsx`)
-- 6-month price history chart using Recharts
-- Line chart with area fill
-- Responsive container
-- Formatted axes and tooltips
-- Gradient fill under line
+- Legacy 6-month line chart using Recharts (replaced by CandlestickChart in expanded panel)
 
 ### UI Components (`components/ui/`)
 shadcn/ui components built on Radix UI:
@@ -298,4 +329,5 @@ To change for production, search and replace or use environment variable.
 - React 19 concurrent features
 - Skeleton loading states for better UX
 - Lazy loading not implemented (small app)
-- Chart data memoization via Recharts
+- Lightweight Charts (~45KB) replaces Recharts (~200KB) for financial charts
+- Lazy loading of expanded panel data (OHLCV/performance/estimates fetched on expand)
