@@ -183,10 +183,17 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
         </div>
       </div>
 
-      {/* Additional Info */}
-      {ma200 && (
-        <div className="mx-4 pb-2 pt-0 border-t border-gray-100 text-xs text-gray-500">
-          200-day MA: ${ma200.toFixed(2)}
+      {/* Additional Info: MA200 + Performance Tiles */}
+      {(ma200 || item.performance) && (
+        <div className="mx-4 pb-2 pt-0 border-t border-gray-100">
+          {ma200 && (
+            <div className="text-xs text-gray-500 mb-1">
+              200-day MA: ${ma200.toFixed(2)}
+            </div>
+          )}
+          {item.performance && (
+            <PerformanceTiles performance={item.performance} compact />
+          )}
         </div>
       )}
 
@@ -198,13 +205,10 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
               <div className="text-gray-500">Loading chart data...</div>
             </div>
           ) : (
-            <>
-              <CandlestickChart
-                symbol={item.symbol}
-                ohlcv={expandedData?.ohlcv || []}
-              />
-              <PerformanceTiles performance={expandedData?.performance} />
-            </>
+            <CandlestickChart
+              symbol={item.symbol}
+              ohlcv={expandedData?.ohlcv || []}
+            />
           )}
         </div>
       )}

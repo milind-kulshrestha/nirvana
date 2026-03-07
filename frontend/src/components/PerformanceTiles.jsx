@@ -1,4 +1,4 @@
-export default function PerformanceTiles({ performance }) {
+export default function PerformanceTiles({ performance, compact = false }) {
   if (!performance) return null;
 
   const periods = [
@@ -27,6 +27,25 @@ export default function PerformanceTiles({ performance }) {
     if (value > -0.05) return 'bg-red-50 text-red-700';
     return 'bg-red-100 text-red-800';
   };
+
+  if (compact) {
+    return (
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        {activePeriods.map(({ key, label }) => {
+          const value = performance[key];
+          return (
+            <span
+              key={key}
+              className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded ${getColor(value)}`}
+            >
+              <span className="font-medium opacity-70">{label}</span>
+              <span className="font-semibold">{formatReturn(value)}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div>

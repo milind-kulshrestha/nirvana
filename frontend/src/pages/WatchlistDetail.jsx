@@ -72,7 +72,7 @@ export default function WatchlistDetail() {
         itemsData.map(async (item) => {
           try {
             const stockRes = await fetch(
-              `${API_BASE}/api/securities/${item.symbol}?include=quote,ma200`,
+              `${API_BASE}/api/securities/${item.symbol}?include=quote,ma200,estimates,performance`,
               { credentials: 'include' }
             );
             if (stockRes.ok) {
@@ -113,7 +113,7 @@ export default function WatchlistDetail() {
 
         // Fetch full stock data
         const stockRes = await fetch(
-          `${API_BASE}/api/securities/${newItem.symbol}?include=quote,ma200`,
+          `${API_BASE}/api/securities/${newItem.symbol}?include=quote,ma200,estimates,performance`,
           { credentials: 'include' }
         );
         const stockData = await stockRes.json();

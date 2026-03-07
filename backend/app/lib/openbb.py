@@ -517,13 +517,23 @@ def get_market_movers(category: str = "active") -> list[dict]:
 
         items = []
         for row in data.results:
+            # OpenBB uses percent_change (not change_percent) for discovery endpoints
+            pct = None
+            for field in ("percent_change", "change_percent", "changes_percentage"):
+                val = getattr(row, field, None)
+                if val is not None:
+                    pct = float(val)
+                    break
+            if pct is None:
+                pct = 0.0
+
             items.append({
                 "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
                 "name": str(row.name) if hasattr(row, "name") and row.name else None,
                 "price": float(row.price) if hasattr(row, "price") and row.price is not None else 0.0,
                 "change": float(row.change) if hasattr(row, "change") and row.change is not None else 0.0,
-                "change_percent": float(row.change_percent) if hasattr(row, "change_percent") and row.change_percent is not None else 0.0,
-                "volume": int(row.volume) if hasattr(row, "volume") and row.volume is not None else 0,
+                "change_percent": pct,
+                "volume": int(row.volume) if hasattr(row, "volume") and row.volume else None,
             })
 
         # Cache with 15-min TTL
@@ -599,18 +609,23 @@ def get_calendar_events(event_type: str = "earnings", days_ahead: int = 30) -> l
         events = []
         for row in data.results:
             if event_type == "earnings":
+                # OpenBB FMP uses 'date' for earnings date and 'eps_estimate' (not 'eps_estimated')
+                date_val = getattr(row, "date", None) or getattr(row, "reporting_date", None)
+                eps_est = getattr(row, "eps_estimate", None) or getattr(row, "eps_estimated", None)
                 events.append({
                     "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
                     "name": str(row.name) if hasattr(row, "name") and row.name else None,
-                    "date": str(row.date) if hasattr(row, "date") else None,
-                    "eps_estimated": float(row.eps_estimated) if hasattr(row, "eps_estimated") and row.eps_estimated is not None else None,
+                    "date": str(date_val) if date_val is not None else None,
+                    "eps_estimated": float(eps_est) if eps_est is not None else None,
                     "fiscal_date_ending": str(row.fiscal_date_ending) if hasattr(row, "fiscal_date_ending") and row.fiscal_date_ending else None,
                 })
             else:
+                date_val = getattr(row, "date", None)
+                ex_div = getattr(row, "ex_dividend_date", None)
                 events.append({
                     "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
-                    "date": str(row.date) if hasattr(row, "date") else None,
-                    "ex_dividend_date": str(row.ex_dividend_date) if hasattr(row, "ex_dividend_date") and row.ex_dividend_date else None,
+                    "date": str(date_val) if date_val is not None else None,
+                    "ex_dividend_date": str(ex_div) if ex_div is not None else None,
                     "dividend": float(row.dividend) if hasattr(row, "dividend") and row.dividend is not None else None,
                     "payment_date": str(row.payment_date) if hasattr(row, "payment_date") and row.payment_date else None,
                     "declaration_date": str(row.declaration_date) if hasattr(row, "declaration_date") and row.declaration_date else None,

@@ -1,11 +1,18 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { createChart, CandlestickSeries, LineSeries, AreaSeries, HistogramSeries } from 'lightweight-charts';
 import { useAISerializable } from '../hooks/useAISerializable';
 import SendToAIButton from './SendToAIButton';
+
+const CHART_TYPES = [
+  { key: 'candlestick', label: 'Candles' },
+  { key: 'line', label: 'Line' },
+  { key: 'area', label: 'Area' },
+];
 
 export default function CandlestickChart({ symbol, ohlcv }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
+  const [chartType, setChartType] = useState('candlestick');
 
   const serializeFn = useCallback(() => {
     if (!ohlcv || ohlcv.length === 0) return { type: 'candlestick-chart', symbol, dataPoints: 0 };
@@ -57,16 +64,6 @@ export default function CandlestickChart({ symbol, ohlcv }) {
 
     chartRef.current = chart;
 
-    // Candlestick series
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#10b981',
-      downColor: '#ef4444',
-      borderUpColor: '#10b981',
-      borderDownColor: '#ef4444',
-      wickUpColor: '#10b981',
-      wickDownColor: '#ef4444',
-    });
-
     const candleData = ohlcv
       .filter((d) => d.open != null && d.high != null && d.low != null)
       .map((d) => ({
@@ -77,7 +74,37 @@ export default function CandlestickChart({ symbol, ohlcv }) {
         close: d.close,
       }));
 
-    candleSeries.setData(candleData);
+    const lineData = ohlcv.map((d) => ({
+      time: d.date,
+      value: d.close,
+    }));
+
+    // Add price series based on chart type
+    if (chartType === 'candlestick') {
+      const series = chart.addSeries(CandlestickSeries, {
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderUpColor: '#10b981',
+        borderDownColor: '#ef4444',
+        wickUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+      });
+      series.setData(candleData);
+    } else if (chartType === 'line') {
+      const series = chart.addSeries(LineSeries, {
+        color: '#6366f1',
+        lineWidth: 2,
+      });
+      series.setData(lineData);
+    } else if (chartType === 'area') {
+      const series = chart.addSeries(AreaSeries, {
+        topColor: 'rgba(99, 102, 241, 0.4)',
+        bottomColor: 'rgba(99, 102, 241, 0.05)',
+        lineColor: '#6366f1',
+        lineWidth: 2,
+      });
+      series.setData(lineData);
+    }
 
     // Volume histogram series
     const volumeSeries = chart.addSeries(HistogramSeries, {
@@ -115,7 +142,7 @@ export default function CandlestickChart({ symbol, ohlcv }) {
       chart.remove();
       chartRef.current = null;
     };
-  }, [ohlcv]);
+  }, [ohlcv, chartType]);
 
   if (!ohlcv || ohlcv.length === 0) {
     return (
@@ -128,10 +155,6 @@ export default function CandlestickChart({ symbol, ohlcv }) {
     );
   }
 
-  const firstPrice = ohlcv[0]?.close || 0;
-  const lastPrice = ohlcv[ohlcv.length - 1]?.close || 0;
-  const isPositive = lastPrice >= firstPrice;
-
   return (
     <div ref={aiRef} className="bg-white rounded-lg p-6">
       <div className="mb-4 flex items-start justify-between">
@@ -139,26 +162,27 @@ export default function CandlestickChart({ symbol, ohlcv }) {
           <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>
           <p className="text-sm text-gray-500">1-Year OHLCV</p>
         </div>
-        <SendToAIButton componentId={`chart-${symbol}`} label={`Ask AI about ${symbol} chart`} />
+        <div className="flex items-center gap-2">
+          <div className="flex gap-0.5 bg-gray-100 rounded-md p-0.5">
+            {CHART_TYPES.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setChartType(t.key)}
+                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                  chartType === t.key
+                    ? 'bg-white shadow-sm text-gray-900'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <SendToAIButton componentId={`chart-${symbol}`} label={`Ask AI about ${symbol} chart`} />
+        </div>
       </div>
 
       <div ref={chartContainerRef} />
-
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <div className="flex justify-between text-sm">
-          <div>
-            <div className="text-gray-500">Start</div>
-            <div className="font-semibold">${firstPrice.toFixed(2)}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-gray-500">Current</div>
-            <div className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-              ${lastPrice.toFixed(2)} ({isPositive ? '+' : ''}
-              {((lastPrice - firstPrice) / firstPrice * 100).toFixed(2)}%)
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="mt-2 text-right">
         <a

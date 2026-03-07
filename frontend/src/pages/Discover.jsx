@@ -16,6 +16,8 @@ export default function Discover() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [watchlistSymbols, setWatchlistSymbols] = useState([]);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState('desc');
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -82,6 +84,27 @@ export default function Discover() {
     { key: 'gainers', label: 'Top Gainers' },
     { key: 'losers', label: 'Top Losers' },
   ];
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortKey(key);
+      setSortDir('desc');
+    }
+  };
+
+  const sortedMovers = [...movers].sort((a, b) => {
+    if (!sortKey) return 0;
+    const aVal = a[sortKey] ?? 0;
+    const bVal = b[sortKey] ?? 0;
+    return sortDir === 'desc' ? bVal - aVal : aVal - bVal;
+  });
+
+  const SortArrow = ({ column }) => {
+    if (sortKey !== column) return null;
+    return <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -174,13 +197,19 @@ export default function Discover() {
                 {/* Table header */}
                 <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
                   <div className="col-span-4">Symbol</div>
-                  <div className="col-span-2 text-right">Price</div>
-                  <div className="col-span-3 text-right">Change</div>
-                  <div className="col-span-3 text-right hidden sm:block">Volume</div>
+                  <button className="col-span-2 text-right cursor-pointer hover:text-gray-700" onClick={() => handleSort('price')}>
+                    Price<SortArrow column="price" />
+                  </button>
+                  <button className="col-span-3 text-right cursor-pointer hover:text-gray-700" onClick={() => handleSort('change_percent')}>
+                    Change<SortArrow column="change_percent" />
+                  </button>
+                  <button className="col-span-3 text-right hidden sm:block cursor-pointer hover:text-gray-700" onClick={() => handleSort('volume')}>
+                    Volume<SortArrow column="volume" />
+                  </button>
                 </div>
 
                 {/* Table rows */}
-                {movers.map((mover, idx) => {
+                {sortedMovers.map((mover, idx) => {
                   const isPositive = mover.change >= 0;
                   const isWatchlist = watchlistSymbols.includes(mover.symbol);
                   return (

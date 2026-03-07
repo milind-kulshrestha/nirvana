@@ -6,7 +6,7 @@ export default function CalendarWidget({ watchlistSymbols = [], filterMode = 'mi
   const [tab, setTab] = useState('earnings');
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState(filterMode);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     fetchEvents();

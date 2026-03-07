@@ -19,7 +19,7 @@ class MarketMover(BaseModel):
     price: float
     change: float
     change_percent: float
-    volume: int
+    volume: Optional[int] = None
 
 
 class MarketMoversResponse(BaseModel):
