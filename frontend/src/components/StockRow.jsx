@@ -1,7 +1,10 @@
-import { useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAISerializable } from '../hooks/useAISerializable';
 import SendToAIButton from './SendToAIButton';
-import StockAnalytics from './StockAnalytics';
+import CandlestickChart from './CandlestickChart';
+import PerformanceTiles from './PerformanceTiles';
+import EstimatesBadge from './EstimatesBadge';
+import { API_BASE } from '../config';
 
 export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
   const quote = item.quote || {};
@@ -11,6 +14,9 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
   const changePercent = quote.change_percent || 0;
   const isPositive = change >= 0;
   const isAboveMA = ma200 && price > ma200;
+
+  const [expandedData, setExpandedData] = useState(null);
+  const [expandedLoading, setExpandedLoading] = useState(false);
 
   const serializeFn = useCallback(() => ({
     type: 'stock-quote',
@@ -24,6 +30,31 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
   }), [item.symbol, price, change, changePercent, quote.volume, ma200, isAboveMA]);
 
   const ref = useAISerializable(`stock-${item.symbol}`, serializeFn);
+
+  // Fetch OHLCV + performance + estimates when expanded
+  useEffect(() => {
+    if (!isExpanded || expandedData) return;
+
+    const fetchExpandedData = async () => {
+      setExpandedLoading(true);
+      try {
+        const response = await fetch(
+          `${API_BASE}/api/securities/${item.symbol}?include=ohlcv,performance,estimates`,
+          { credentials: 'include' }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setExpandedData(data);
+        }
+      } catch (err) {
+        console.error(`Error fetching expanded data for ${item.symbol}:`, err);
+      } finally {
+        setExpandedLoading(false);
+      }
+    };
+
+    fetchExpandedData();
+  }, [isExpanded, item.symbol, expandedData]);
 
   // Show loading state
   if (item.loading) {
@@ -108,6 +139,9 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
                 {isAboveMA ? '↑ Above' : '↓ Below'} MA200
               </span>
             )}
+            {item.estimates && (
+              <EstimatesBadge estimates={item.estimates} currentPrice={price} />
+            )}
           </div>
           {item.name && <p className="text-sm text-gray-500 mt-0.5">{item.name}</p>}
         </div>
@@ -158,8 +192,20 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
 
       {/* Expandable dropdown panel */}
       {isExpanded && (
-        <div className="border-t border-gray-200 p-4">
-          <StockAnalytics symbol={item.symbol} />
+        <div className="border-t border-gray-200 p-4 space-y-4">
+          {expandedLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-gray-500">Loading chart data...</div>
+            </div>
+          ) : (
+            <>
+              <CandlestickChart
+                symbol={item.symbol}
+                ohlcv={expandedData?.ohlcv || []}
+              />
+              <PerformanceTiles performance={expandedData?.performance} />
+            </>
+          )}
         </div>
       )}
     </div>

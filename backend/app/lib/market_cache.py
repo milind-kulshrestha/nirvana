@@ -102,6 +102,24 @@ def get_cached_quote(symbol: str) -> dict[str, Any] | None:
     return json.loads(data_json) if isinstance(data_json, str) else data_json
 
 
+def get_cached_quote_with_ttl(symbol: str, ttl_minutes: int = 15) -> dict[str, Any] | None:
+    """Return cached quote data if it was fetched less than ttl_minutes ago."""
+    conn = _get_connection()
+    result = conn.execute(
+        "SELECT data, fetched_at FROM quotes_cache WHERE symbol = ?",
+        [symbol.upper()],
+    ).fetchone()
+
+    if result is None:
+        return None
+
+    data_json, fetched_at = result
+    if datetime.now(timezone.utc) - fetched_at.replace(tzinfo=timezone.utc) > timedelta(minutes=ttl_minutes):
+        return None
+
+    return json.loads(data_json) if isinstance(data_json, str) else data_json
+
+
 def cache_quote(symbol: str, data: dict[str, Any]) -> None:
     """Upsert a quote into the cache."""
     conn = _get_connection()

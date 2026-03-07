@@ -266,3 +266,365 @@ def get_history(symbol: str, months: int = 6) -> list[dict]:
         if "timeout" in str(e).lower():
             raise OpenBBTimeoutError(f"Timeout fetching historical data for {symbol}")
         raise SymbolNotFoundError(f"Error fetching history for {symbol}: {str(e)}")
+
+
+def get_ohlcv(symbol: str, days: int = 365) -> list[dict]:
+    """
+    Fetch OHLCV daily bars.
+
+    Checks DuckDB daily_prices cache first. On miss, fetches from OpenBB
+    and caches the result.
+
+    Args:
+        symbol: Stock ticker symbol
+        days: Number of calendar days of history (default: 365)
+
+    Returns:
+        List of dicts with date, open, high, low, close, volume
+
+    Raises:
+        SymbolNotFoundError: If symbol not found
+        OpenBBTimeoutError: If API request times out
+    """
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_history
+        cached_rows = get_cached_history(symbol, start_str, end_str)
+        if cached_rows and len(cached_rows) >= days * 0.6:
+            return [
+                {
+                    "date": row["date"],
+                    "open": float(row["open"]) if row.get("open") is not None else None,
+                    "high": float(row["high"]) if row.get("high") is not None else None,
+                    "low": float(row["low"]) if row.get("low") is not None else None,
+                    "close": float(row["close"]),
+                    "volume": int(row["volume"]) if row.get("volume") is not None else None,
+                }
+                for row in cached_rows
+            ]
+    except Exception:
+        logger.debug("Cache read failed for OHLCV %s, falling back to API", symbol)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        historical = obb.equity.price.historical(
+            symbol=symbol,
+            start_date=start_str,
+            end_date=end_str,
+            provider="fmp",
+        )
+
+        if not historical or not historical.results:
+            raise SymbolNotFoundError(f"No OHLCV data for {symbol}")
+
+        ohlcv_data = []
+        cache_records = []
+        for day in historical.results:
+            date_str = day.date.strftime("%Y-%m-%d") if isinstance(day.date, datetime) else str(day.date)
+            rec = {
+                "date": date_str,
+                "open": float(day.open) if day.open else None,
+                "high": float(day.high) if day.high else None,
+                "low": float(day.low) if day.low else None,
+                "close": float(day.close),
+                "volume": int(day.volume) if day.volume else None,
+            }
+            ohlcv_data.append(rec)
+            cache_records.append(rec)
+
+        # Write to cache
+        try:
+            from app.lib.market_cache import cache_history
+            cache_history(symbol, cache_records)
+        except Exception:
+            logger.debug("Cache write failed for OHLCV %s", symbol)
+
+        return ohlcv_data
+
+    except SymbolNotFoundError:
+        raise
+    except Exception as e:
+        if "timeout" in str(e).lower():
+            raise OpenBBTimeoutError(f"Timeout fetching OHLCV data for {symbol}")
+        raise SymbolNotFoundError(f"Error fetching OHLCV for {symbol}: {str(e)}")
+
+
+def get_performance(symbol: str) -> dict:
+    """
+    Fetch multi-period return summary.
+
+    Checks DuckDB quotes_cache first (key: {SYMBOL}:performance, TTL 15 min).
+    On miss, fetches from OpenBB and caches.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with period returns (one_day, one_week, one_month, etc.)
+
+    Raises:
+        SymbolNotFoundError: If symbol not found
+        OpenBBTimeoutError: If API request times out
+    """
+    cache_key = f"{symbol.upper()}:performance"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_quote
+        cached = get_cached_quote(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for performance %s", symbol)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        data = obb.equity.price.performance(symbol=symbol, provider="fmp")
+
+        if not data or not data.results:
+            raise SymbolNotFoundError(f"No performance data for {symbol}")
+
+        result = data.results[0]
+        perf_data = {
+            "one_day_return": float(result.one_day) if hasattr(result, "one_day") and result.one_day is not None else None,
+            "one_week_return": float(result.one_week) if hasattr(result, "one_week") and result.one_week is not None else None,
+            "one_month_return": float(result.one_month) if hasattr(result, "one_month") and result.one_month is not None else None,
+            "three_month_return": float(result.three_month) if hasattr(result, "three_month") and result.three_month is not None else None,
+            "six_month_return": float(result.six_month) if hasattr(result, "six_month") and result.six_month is not None else None,
+            "ytd_return": float(result.ytd) if hasattr(result, "ytd") and result.ytd is not None else None,
+            "one_year_return": float(result.one_year) if hasattr(result, "one_year") and result.one_year is not None else None,
+        }
+
+        # Cache with 15-min TTL (reuses quotes_cache)
+        try:
+            from app.lib.market_cache import cache_quote
+            cache_quote(cache_key, perf_data)
+        except Exception:
+            logger.debug("Cache write failed for performance %s", symbol)
+
+        return perf_data
+
+    except SymbolNotFoundError:
+        raise
+    except Exception as e:
+        if "timeout" in str(e).lower():
+            raise OpenBBTimeoutError(f"Timeout fetching performance for {symbol}")
+        raise SymbolNotFoundError(f"Error fetching performance for {symbol}: {str(e)}")
+
+
+def get_estimates(symbol: str) -> dict:
+    """
+    Fetch analyst consensus estimates.
+
+    Checks DuckDB fundamentals cache first (24h TTL).
+    On miss, fetches from OpenBB and caches.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with consensus_type, consensus_rating, target_price
+
+    Raises:
+        SymbolNotFoundError: If symbol not found
+        OpenBBTimeoutError: If API request times out
+    """
+    cache_key = f"{symbol.upper()}:estimates"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for estimates %s", symbol)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        data = obb.equity.estimates.consensus(symbol=symbol, provider="fmp")
+
+        if not data or not data.results:
+            raise SymbolNotFoundError(f"No estimates data for {symbol}")
+
+        result = data.results[0]
+        estimates_data = {
+            "consensus_type": str(result.type) if hasattr(result, "type") and result.type else None,
+            "consensus_rating": float(result.rating) if hasattr(result, "rating") and result.rating is not None else None,
+            "target_price": float(result.target_price) if hasattr(result, "target_price") and result.target_price is not None else None,
+        }
+
+        # Cache with 24h TTL
+        try:
+            from app.lib.market_cache import cache_fundamentals
+            cache_fundamentals(cache_key, estimates_data)
+        except Exception:
+            logger.debug("Cache write failed for estimates %s", symbol)
+
+        return estimates_data
+
+    except SymbolNotFoundError:
+        raise
+    except Exception as e:
+        if "timeout" in str(e).lower():
+            raise OpenBBTimeoutError(f"Timeout fetching estimates for {symbol}")
+        raise SymbolNotFoundError(f"Error fetching estimates for {symbol}: {str(e)}")
+
+
+def get_market_movers(category: str = "active") -> list[dict]:
+    """
+    Fetch market discovery data (most active, gainers, losers).
+
+    Checks DuckDB quotes_cache first (key: _discovery:{category}, TTL 15 min).
+
+    Args:
+        category: "active", "gainers", or "losers"
+
+    Returns:
+        List of dicts with symbol, name, price, change, change_percent, volume
+    """
+    cache_key = f"_discovery:{category}"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_quote
+        cached = get_cached_quote(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for discovery %s", category)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        fetcher = {
+            "active": lambda: obb.equity.discovery.active(provider="fmp"),
+            "gainers": lambda: obb.equity.discovery.gainers(provider="fmp"),
+            "losers": lambda: obb.equity.discovery.losers(provider="fmp"),
+        }.get(category)
+
+        if not fetcher:
+            return []
+
+        data = fetcher()
+
+        if not data or not data.results:
+            return []
+
+        items = []
+        for row in data.results:
+            items.append({
+                "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
+                "name": str(row.name) if hasattr(row, "name") and row.name else None,
+                "price": float(row.price) if hasattr(row, "price") and row.price is not None else 0.0,
+                "change": float(row.change) if hasattr(row, "change") and row.change is not None else 0.0,
+                "change_percent": float(row.change_percent) if hasattr(row, "change_percent") and row.change_percent is not None else 0.0,
+                "volume": int(row.volume) if hasattr(row, "volume") and row.volume is not None else 0,
+            })
+
+        # Cache with 15-min TTL
+        try:
+            from app.lib.market_cache import cache_quote
+            cache_quote(cache_key, items)
+        except Exception:
+            logger.debug("Cache write failed for discovery %s", category)
+
+        return items
+
+    except Exception as e:
+        logger.warning("Failed to fetch market movers (%s): %s", category, e)
+        return []
+
+
+def get_calendar_events(event_type: str = "earnings", days_ahead: int = 30) -> list[dict]:
+    """
+    Fetch upcoming calendar events (earnings or dividends).
+
+    Checks DuckDB quotes_cache first (key: _calendar:{type}, TTL 1 hour).
+
+    Args:
+        event_type: "earnings" or "dividends"
+        days_ahead: lookahead window in days (default: 30)
+
+    Returns:
+        List of event dicts
+    """
+    cache_key = f"_calendar:{event_type}"
+
+    # --- cache hit? (1-hour TTL handled by custom check) ---
+    try:
+        from app.lib.market_cache import get_cached_quote_with_ttl
+        cached = get_cached_quote_with_ttl(cache_key, ttl_minutes=60)
+        if cached is not None:
+            return cached
+    except (ImportError, AttributeError):
+        # Fallback: use standard 15-min cache
+        try:
+            from app.lib.market_cache import get_cached_quote
+            cached = get_cached_quote(cache_key)
+            if cached is not None:
+                return cached
+        except Exception:
+            pass
+    except Exception:
+        logger.debug("Cache read failed for calendar %s", event_type)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        start_date = datetime.now().strftime("%Y-%m-%d")
+        end_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+
+        if event_type == "earnings":
+            data = obb.equity.calendar.earnings(
+                start_date=start_date,
+                end_date=end_date,
+                provider="fmp",
+            )
+        elif event_type == "dividends":
+            data = obb.equity.calendar.dividend(
+                start_date=start_date,
+                end_date=end_date,
+                provider="fmp",
+            )
+        else:
+            return []
+
+        if not data or not data.results:
+            return []
+
+        events = []
+        for row in data.results:
+            if event_type == "earnings":
+                events.append({
+                    "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
+                    "name": str(row.name) if hasattr(row, "name") and row.name else None,
+                    "date": str(row.date) if hasattr(row, "date") else None,
+                    "eps_estimated": float(row.eps_estimated) if hasattr(row, "eps_estimated") and row.eps_estimated is not None else None,
+                    "fiscal_date_ending": str(row.fiscal_date_ending) if hasattr(row, "fiscal_date_ending") and row.fiscal_date_ending else None,
+                })
+            else:
+                events.append({
+                    "symbol": str(row.symbol) if hasattr(row, "symbol") else "",
+                    "date": str(row.date) if hasattr(row, "date") else None,
+                    "ex_dividend_date": str(row.ex_dividend_date) if hasattr(row, "ex_dividend_date") and row.ex_dividend_date else None,
+                    "dividend": float(row.dividend) if hasattr(row, "dividend") and row.dividend is not None else None,
+                    "payment_date": str(row.payment_date) if hasattr(row, "payment_date") and row.payment_date else None,
+                    "declaration_date": str(row.declaration_date) if hasattr(row, "declaration_date") and row.declaration_date else None,
+                })
+
+        # Cache
+        try:
+            from app.lib.market_cache import cache_quote
+            cache_quote(cache_key, events)
+        except Exception:
+            logger.debug("Cache write failed for calendar %s", event_type)
+
+        return events
+
+    except Exception as e:
+        logger.warning("Failed to fetch calendar events (%s): %s", event_type, e)
+        return []
