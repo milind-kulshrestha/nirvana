@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useAISerializable } from '../hooks/useAISerializable';
 import SendToAIButton from './SendToAIButton';
-import PriceChart from './PriceChart';
+import StockAnalytics from './StockAnalytics';
 
 export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
   const quote = item.quote || {};
@@ -159,7 +159,7 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
       {/* Expandable dropdown panel */}
       {isExpanded && (
         <div className="border-t border-gray-200 p-4">
-          <PriceChart symbol={item.symbol} />
+          <StockAnalytics symbol={item.symbol} />
         </div>
       )}
     </div>

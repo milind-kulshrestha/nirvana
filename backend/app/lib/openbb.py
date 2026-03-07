@@ -37,6 +37,22 @@ def _try_cache_quote(symbol: str, data: dict) -> None:
         logger.debug("Cache write failed for quote %s", symbol)
 
 
+def _format_date(date_obj) -> str:
+    """Format date object to YYYY-MM-DD string."""
+    if isinstance(date_obj, datetime):
+        return date_obj.strftime("%Y-%m-%d")
+    return str(date_obj)
+
+
+def _safe_float_attr(obj, attr_name: str) -> float | None:
+    """Safely extract float attribute from OpenBB result object."""
+    if hasattr(obj, attr_name):
+        value = getattr(obj, attr_name)
+        if value is not None:
+            return float(value)
+    return None
+
+
 def get_quote(symbol: str) -> dict:
     """
     Fetch current quote for symbol.
