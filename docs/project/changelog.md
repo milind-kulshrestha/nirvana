@@ -6,6 +6,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-15] - Dexter Agent Loop Port
+
+### Added
+- **`backend/app/lib/agent/scratchpad.py`** (new) — Append-only JSONL scratchpad for agent work
+  - Writes `~/.nirvana/scratchpad/{timestamp}_{md5}.jsonl` per query
+  - Tracks tool call counts and Jaccard similarity across queries for soft-limit warnings
+  - `clear_oldest_tool_results(keep_count)` for in-memory context management (never modifies file)
+  - `has_executed_skill(name)` for skill deduplication
+  - `estimate_tokens(system, query)` for context threshold checks
+- **`heartbeat` tool** — View/update `~/.nirvana/HEARTBEAT.md` periodic monitoring checklist
+- **`skill` tool** — Invoke a registered skill workflow by name; returns SKILL.md content
+
+### Changed
+- **`harness.py`** — Full rewrite of `stream_response` loop to scratchpad-backed architecture
+  - Static `context_messages` (prior turns) + rebuilt `current_prompt` per iteration
+  - Context threshold management: clears oldest tool results when estimated tokens > 100,000
+  - Hard overflow retry: catches `BadRequestError`, clears aggressively, retries up to 2 times
+  - New SSE event types: `tool_limit` (soft limit warning), `context_cleared`
+  - Constants: `CONTEXT_THRESHOLD=100_000`, `KEEP_TOOL_USES=5`, `OVERFLOW_KEEP_TOOL_USES=3`, `MAX_OVERFLOW_RETRIES=2`
+  - `InvestmentAgent.__init__` now passes `skill_manager` to `ToolExecutor` and injects available skills into system prompt
+- **`prompts.py`** — Full rewrite with Dexter-style architecture
+  - `TOOL_PROSE` dict: rich 3–6 sentence descriptions for all 13 tools
+  - `build_system_prompt(memory_facts, available_skills)` — structured sections (tools, policy, skills, heartbeat, memory, guidelines)
+  - `build_iteration_prompt(query, tool_results, usage_status)` — rebuilds user turn each iteration with accumulated tool data
+- **`skills.py`** — Added two new methods
+  - `get_skills_for_prompt()` — returns system + user skill metadata for prompt injection (user overrides system on name collision)
+  - `load_skill_content(name)` — loads full SKILL.md content (user DB first, then system files)
+- **`tools.py`** — `ToolExecutor.__init__` now accepts `skill_manager` param; added `_handle_heartbeat`, `_handle_skill`
+
 ## [2026-02-11] - Dashboard Data Expansion
 
 ### Added

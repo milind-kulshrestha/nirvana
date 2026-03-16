@@ -98,6 +98,69 @@ class SkillManager:
 
         return skills
 
+    def get_skills_for_prompt(self) -> list[dict]:
+        """Return skill metadata for injection into the system prompt.
+
+        Returns merged list of system + user skills (user overrides system on name collision).
+        """
+        skills: dict[str, dict] = {}
+
+        # System skills
+        if SYSTEM_SKILLS_DIR.exists():
+            for skill_dir in SYSTEM_SKILLS_DIR.iterdir():
+                if skill_dir.is_dir():
+                    skill_md = skill_dir / "SKILL.md"
+                    if skill_md.exists():
+                        content = skill_md.read_text()
+                        description = self._extract_description(content)
+                        skills[skill_dir.name] = {
+                            "name": skill_dir.name,
+                            "description": description,
+                        }
+
+        # User skills (active only) — override system skills with same name
+        user_skills = (
+            self.db.query(Skill)
+            .filter(
+                Skill.user_id == self.user_id,
+                Skill.is_active == True,  # noqa: E712
+            )
+            .all()
+        )
+        for skill in user_skills:
+            skills[skill.name] = {
+                "name": skill.name,
+                "description": skill.description or "",
+            }
+
+        return list(skills.values())
+
+    def load_skill_content(self, skill_name: str) -> str | None:
+        """Load the full SKILL.md content for a given skill name.
+
+        Search order: user DB (active) first, then system skills directory.
+        Returns raw content string or None if not found.
+        """
+        # User skills first
+        user_skill = (
+            self.db.query(Skill)
+            .filter(
+                Skill.user_id == self.user_id,
+                Skill.name == skill_name,
+                Skill.is_active == True,  # noqa: E712
+            )
+            .first()
+        )
+        if user_skill:
+            return user_skill.content
+
+        # System skills
+        skill_md = SYSTEM_SKILLS_DIR / skill_name / "SKILL.md"
+        if skill_md.exists():
+            return skill_md.read_text()
+
+        return None
+
     @staticmethod
     def _extract_description(content: str) -> str:
         """Extract description from SKILL.md YAML frontmatter."""

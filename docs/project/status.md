@@ -1,12 +1,20 @@
 # Project Status
 
-**Last Updated:** 2026-02-11
+**Last Updated:** 2026-03-15
 
-## Current Status: Dashboard Data Expansion Complete
+## Current Status: Dexter Agent Loop Port Complete
 
 Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
 
-### Latest Accomplishments (2026-02-11)
+### Latest Accomplishments (2026-03-15)
+- ✅ **Dexter Agent Loop** — Scratchpad-backed context management ported from Dexter TypeScript architecture
+  - `scratchpad.py` (new): JSONL log, soft tool limits, Jaccard similarity dedup, context clearing
+  - `build_iteration_prompt` rebuilds user turn each loop with accumulated tool results
+  - `build_system_prompt` now includes rich `TOOL_PROSE` descriptions and skill injection
+  - `heartbeat` tool: view/update `~/.nirvana/HEARTBEAT.md` monitoring checklist
+  - `skill` tool: invoke registered skill workflows (deduplication via scratchpad)
+  - Context overflow recovery: catches `BadRequestError`, retries with fewer tool results
+  - New SSE events: `tool_limit`, `context_cleared`
 - ✅ **OHLCV Candlestick Charts** - Replaced Recharts with TradingView Lightweight Charts (candlestick + volume)
 - ✅ **Performance Tiles** - Multi-period return heatmap (1D through 1Y) in expanded panel
 - ✅ **Analyst Estimates** - Consensus Buy/Hold/Sell badge with target price delta inline in StockRow
@@ -77,6 +85,11 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
   - ✅ Price monitor creation
   - ✅ Report export to disk
   - ✅ DuckDB SQL queries from agent
+  - ✅ Scratchpad-backed loop (Dexter architecture)
+  - ✅ Soft tool limits with Jaccard similarity dedup
+  - ✅ Context overflow recovery
+  - ✅ `heartbeat` tool (HEARTBEAT.md monitoring checklist)
+  - ✅ `skill` tool with deduplication
 
 ### Technical Stack
 - **Backend**: FastAPI + SQLAlchemy + SQLite/PostgreSQL
@@ -112,6 +125,14 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
 ## Milestone History
 
 ### Completed Milestones
+
+#### Milestone 8: Dexter Agent Loop Port (Mar 15, 2026) ✅
+- Scratchpad-backed context management (`scratchpad.py`) — JSONL per query, soft limits, Jaccard dedup
+- Full `harness.py` loop rewrite: static context + rebuilt iteration prompt, context overflow recovery
+- `prompts.py` rewrite: `TOOL_PROSE` dict (13 tools), `build_system_prompt`, `build_iteration_prompt`
+- `skills.py`: `get_skills_for_prompt()`, `load_skill_content()` for system + user skills
+- `tools.py`: `heartbeat` tool (HEARTBEAT.md), `skill` tool (SKILL.md content), `skill_manager` wired in
+- New SSE event types: `tool_limit` (soft limit warning), `context_cleared`
 
 #### Milestone 7: Dashboard Data Expansion (Feb 11, 2026) ✅
 - OHLCV candlestick charts with TradingView Lightweight Charts (replacing Recharts)

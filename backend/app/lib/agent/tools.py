@@ -208,27 +208,70 @@ TOOL_DEFINITIONS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "heartbeat",
+        "description": "View or update the periodic monitoring checklist (~/.nirvana/HEARTBEAT.md).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["view", "update"],
+                    "description": "Whether to view or update the heartbeat checklist",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "New markdown content (required for update action)",
+                },
+            },
+            "required": ["action"],
+        },
+    },
+    {
+        "name": "skill",
+        "description": "Invoke a registered skill workflow by name. Returns step-by-step instructions to follow.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "skill": {
+                    "type": "string",
+                    "description": "Exact skill name (e.g., 'research-stock')",
+                },
+            },
+            "required": ["skill"],
+        },
+    },
 ]
+
+
+_HEARTBEAT_PATH = _NIRVANA_DIR / "HEARTBEAT.md"
 
 
 class ToolExecutor:
     """Executes tool calls from the AI agent."""
 
-    def __init__(self, db: Session, user_id: int):
+    def __init__(self, db: Session, user_id: int, skill_manager=None):
         self.db = db
         self.user_id = user_id
+        self.skill_manager = skill_manager
 
     async def execute(self, tool_name: str, tool_input: dict) -> str:
         """Execute a tool and return the result as a string."""
         handler = getattr(self, f"_handle_{tool_name}", None)
-        if not handler:
-            return f"Unknown tool: {tool_name}"
-        try:
-            result = await handler(tool_input)
-            return str(result)
-        except Exception as e:
-            logger.error(f"Tool execution error ({tool_name}): {e}")
-            return f"Error executing {tool_name}: {str(e)}"
+        if handler:
+            try:
+                result = await handler(tool_input)
+                return str(result)
+            except Exception as e:
+                logger.error(f"Tool execution error ({tool_name}): {e}")
+                return f"Error executing {tool_name}: {str(e)}"
+
+        # Delegate to FMP MCP server if it's an FMP tool
+        from app.lib.fmp_mcp import fmp_mcp
+        if fmp_mcp.is_fmp_tool(tool_name):
+            return await fmp_mcp.call_tool(tool_name, tool_input)
+
+        return f"Unknown tool: {tool_name}"
 
     async def _handle_get_quote(self, input: dict) -> dict:
         """Get real-time quote with 200-day moving average."""
@@ -412,6 +455,30 @@ class ToolExecutor:
             "size_bytes": file_path.stat().st_size,
             "status": "exported",
         }
+
+    async def _handle_heartbeat(self, input: dict) -> str:
+        """View or update the heartbeat monitoring checklist."""
+        action = input["action"]
+        if action == "view":
+            if not _HEARTBEAT_PATH.exists():
+                return "No heartbeat configured yet. Use 'update' action to create one."
+            return _HEARTBEAT_PATH.read_text()
+        elif action == "update":
+            content = input.get("content", "")
+            _NIRVANA_DIR.mkdir(parents=True, exist_ok=True)
+            _HEARTBEAT_PATH.write_text(content)
+            return f"Heartbeat checklist updated ({len(content)} chars)."
+        return f"Unknown heartbeat action: {action}"
+
+    async def _handle_skill(self, input: dict) -> str:
+        """Load and return skill content for the agent to follow."""
+        skill_name = input.get("skill", "")
+        if not self.skill_manager:
+            return f"Skill system not available."
+        content = self.skill_manager.load_skill_content(skill_name)
+        if content is None:
+            return f"Skill '{skill_name}' not found."
+        return content
 
     async def _handle_query_market_data(self, input: dict) -> dict | list:
         """Execute a read-only SQL query against the DuckDB market data cache."""

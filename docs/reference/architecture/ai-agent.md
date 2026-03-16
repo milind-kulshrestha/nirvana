@@ -1,6 +1,6 @@
 # AI Agent Architecture
 
-**Last Updated:** 2026-02-07
+**Last Updated:** 2026-03-15
 
 The AI agent system provides conversational intelligence for stock analysis, portfolio management, and investment research using Claude via the Anthropic SDK.
 
@@ -76,30 +76,43 @@ The AI agent is a full-stack feature that enables users to:
 │                    AI Agent Core                             │
 ├─────────────────────────────────────────────────────────────┤
 │  InvestmentAgent (app/agent/harness.py)                     │
-│  ├─ Streaming tool-use loop with Anthropic SDK              │
-│  ├─ Tool execution orchestration                            │
+│  ├─ Scratchpad-backed streaming tool-use loop               │
+│  ├─ Static context_messages + rebuilt current_prompt/iter  │
+│  ├─ Soft tool limits + context overflow recovery            │
 │  ├─ Memory fact extraction                                  │
 │  └─ Multi-turn conversation handling                        │
 │                                                              │
+│  Scratchpad (app/agent/scratchpad.py)                       │
+│  ├─ JSONL log at ~/.nirvana/scratchpad/                     │
+│  ├─ Tool call counting + Jaccard similarity dedup           │
+│  ├─ clear_oldest_tool_results() - in-memory context mgmt   │
+│  ├─ has_executed_skill() - skill deduplication             │
+│  └─ estimate_tokens() - context threshold check            │
+│                                                              │
 │  ToolExecutor (app/agent/tools.py)                          │
-│  ├─ get_stock_quote() - Fetch real-time quote               │
+│  ├─ get_quote() - Real-time quote                           │
 │  ├─ get_price_history() - Historical price data             │
+│  ├─ get_financial_ratios() - Valuation multiples            │
 │  ├─ search_symbol() - Symbol lookup                         │
-│  ├─ get_watchlists() - User's watchlists                    │
-│  ├─ get_watchlist_detail() - Watchlist with quotes          │
+│  ├─ get_watchlists() / get_watchlist_items()                │
 │  ├─ propose_action() - Create pending action                │
-│  └─ get_user_memory() - Fetch memory facts                  │
+│  ├─ get_user_memory() - Fetch memory facts                  │
+│  ├─ create_monitor() - Background price monitor             │
+│  ├─ export_report() - Save analysis to disk                 │
+│  ├─ query_market_data() - DuckDB SQL queries                │
+│  ├─ heartbeat() - View/update HEARTBEAT.md checklist        │
+│  └─ skill() - Invoke registered skill workflow              │
 │                                                              │
 │  SkillManager (app/agent/skills.py)                         │
-│  ├─ Load system skills from filesystem                      │
-│  ├─ Load user skills from database                          │
-│  └─ Inject skills into system prompt                        │
+│  ├─ get_skills_for_prompt() - metadata for system prompt   │
+│  ├─ load_skill_content(name) - full SKILL.md content        │
+│  ├─ Load system skills from data/system_skills/             │
+│  └─ Load user skills from database                          │
 │                                                              │
-│  System Prompt (app/agent/prompts.py)                       │
-│  ├─ Role definition (investment analyst)                    │
-│  ├─ Tool usage instructions                                 │
-│  ├─ Memory context injection                                │
-│  └─ Skill definitions                                        │
+│  Prompts (app/agent/prompts.py)                             │
+│  ├─ TOOL_PROSE - rich per-tool descriptions (13 tools)      │
+│  ├─ build_system_prompt(memory, skills) - structured prompt │
+│  └─ build_iteration_prompt(query, results, usage) - loop   │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -216,40 +229,45 @@ DELETE /api/skills/:id                   # Delete user skill
 
 ### 5. AI Agent Core
 
-#### InvestmentAgent (`backend/app/agent/harness.py`)
-- Wraps Anthropic SDK Messages API
-- Streaming tool-use loop:
-  1. Send user message to Claude
-  2. Stream response chunks
-  3. Execute tool calls via `ToolExecutor`
-  4. Continue conversation with tool results
-  5. Extract memory facts from final response
-- Manages conversation state and context
+#### InvestmentAgent (`backend/app/lib/agent/harness.py`)
+- Wraps Anthropic SDK Messages API with scratchpad-backed loop
+- Loop architecture (Dexter port):
+  1. Extract `query_text` from last user message; create `Scratchpad`
+  2. `context_messages` = prior turns (static); `current_prompt` rebuilt each iteration
+  3. Stream `[context_messages + current_prompt]` to Claude
+  4. On `BadRequestError` (overflow): clear oldest results, retry (max 2 times)
+  5. For each tool call: check soft limits, execute, record in scratchpad
+  6. After all tool calls: check `CONTEXT_THRESHOLD`; rebuild `current_prompt` via `build_iteration_prompt`
+  7. Loop until no tool calls in response
+- Constants: `CONTEXT_THRESHOLD=100_000`, `KEEP_TOOL_USES=5`, `OVERFLOW_KEEP_TOOL_USES=3`, `MAX_OVERFLOW_RETRIES=2`
+- SSE events emitted: `token`, `tool_call`, `tool_result`, `action_proposed`, `tool_limit`, `context_cleared`, `done`, `error`
 
-#### ToolExecutor (`backend/app/agent/tools.py`)
-- Tool definitions for Claude:
-  - `get_stock_quote` - Real-time quote from OpenBB
-  - `get_price_history` - Historical OHLCV data
-  - `search_symbol` - Symbol lookup by name/ticker
-  - `get_watchlists` - User's watchlist summary
-  - `get_watchlist_detail` - Watchlist with live quotes
-  - `propose_action` - Create pending action (requires approval)
-  - `get_user_memory` - Fetch memory facts
-- Tool execution with error handling
-- Database and OpenBB integration
+#### Scratchpad (`backend/app/lib/agent/scratchpad.py`)
+- Append-only JSONL file at `~/.nirvana/scratchpad/{timestamp}_{md5_12}.jsonl`
+- `add_tool_result(name, args, result)` — records parsed JSON or raw string
+- `can_call_tool(name, query)` — warns (never blocks) when count ≥ 3 or similar query seen
+- `record_tool_call(name, query)` — increments counters, stores queries for dedup
+- `get_tool_results()` — formats active results as `### tool(args)\nresult`; cleared entries show placeholder
+- `clear_oldest_tool_results(keep_count)` — marks oldest entries as cleared (in-memory only)
+- `has_executed_skill(name)` — scans JSONL for prior skill invocations
+- `estimate_tokens(system, query)` — rough estimate via `len / 3.5`
 
-#### SkillManager (`backend/app/agent/skills.py`)
-- Loads system skills from `backend/app/agent/system_skills/`
-- Loads user skills from `Skill` model
-- Formats skills for system prompt injection
-- Skills provide specialized investment workflows
+#### ToolExecutor (`backend/app/lib/agent/tools.py`)
+- 13 tool definitions + FMP MCP tools (dynamic)
+- Native handlers: `get_quote`, `get_watchlists`, `get_watchlist_items`, `get_price_history`, `get_financial_ratios`, `search_symbol`, `propose_action`, `get_user_memory`, `create_monitor`, `export_report`, `query_market_data`
+- `heartbeat(action, content)` — reads/writes `~/.nirvana/HEARTBEAT.md`
+- `skill(skill)` — calls `skill_manager.load_skill_content(name)`, returns SKILL.md content
 
-#### System Prompt (`backend/app/agent/prompts.py`)
-- Defines agent role (investment research analyst)
-- Tool usage instructions
-- Memory context injection (user preferences, goals)
-- Skill definitions (system + user)
-- Response formatting guidelines
+#### SkillManager (`backend/app/lib/agent/skills.py`)
+- `get_skills_for_prompt()` — returns `[{name, description}]` for system prompt injection; user skills override system on name collision
+- `load_skill_content(name)` — returns full SKILL.md content (user DB first, then `data/system_skills/`)
+- `get_available_skills()` — full list for UI display (existing, unchanged)
+- System skills in `backend/data/system_skills/`
+
+#### Prompts (`backend/app/lib/agent/prompts.py`)
+- `TOOL_PROSE` — dict of rich 3–6 sentence tool descriptions covering what/when/when-not/tips
+- `build_system_prompt(memory_facts, available_skills)` — structured sections: tool descriptions, usage policy, skills (if any), heartbeat, actions, memory, guidelines
+- `build_iteration_prompt(query, tool_results, usage_status)` — rebuilds user turn: query + accumulated data + usage stats + "continue" instruction
 
 ### 6. Database Models
 
