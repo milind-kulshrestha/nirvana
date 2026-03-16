@@ -25,16 +25,27 @@ export default function Settings() {
 
   // Form state
   const [anthropicKey, setAnthropicKey] = useState('');
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [googleKey, setGoogleKey] = useState('');
+  const [groqKey, setGroqKey] = useState('');
   const [fmpKey, setFmpKey] = useState('');
+  const [defaultModel, setDefaultModel] = useState('anthropic/claude-sonnet-4-6');
+  const [availableModels, setAvailableModels] = useState([]);
   const [refreshInterval, setRefreshInterval] = useState(15);
   const [marketHoursOnly, setMarketHoursOnly] = useState(false);
 
   // Masked values from API (display current status)
   const [maskedAnthropicKey, setMaskedAnthropicKey] = useState('');
+  const [maskedOpenaiKey, setMaskedOpenaiKey] = useState('');
+  const [maskedGoogleKey, setMaskedGoogleKey] = useState('');
+  const [maskedGroqKey, setMaskedGroqKey] = useState('');
   const [maskedFmpKey, setMaskedFmpKey] = useState('');
 
   // Visibility toggles
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
+  const [showOpenaiKey, setShowOpenaiKey] = useState(false);
+  const [showGoogleKey, setShowGoogleKey] = useState(false);
+  const [showGroqKey, setShowGroqKey] = useState(false);
   const [showFmpKey, setShowFmpKey] = useState(false);
 
   // Test states: null | 'testing' | 'success' | 'error'
@@ -43,6 +54,10 @@ export default function Settings() {
 
   useEffect(() => {
     fetchSettings();
+    fetch(`${API_BASE}/api/settings/models`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAvailableModels)
+      .catch(() => {});
   }, []);
 
   const fetchSettings = async () => {
@@ -53,7 +68,11 @@ export default function Settings() {
       if (response.ok) {
         const data = await response.json();
         setMaskedAnthropicKey(data.anthropic_api_key || '');
+        setMaskedOpenaiKey(data.openai_api_key || '');
+        setMaskedGoogleKey(data.google_api_key || '');
+        setMaskedGroqKey(data.groq_api_key || '');
         setMaskedFmpKey(data.fmp_api_key || '');
+        setDefaultModel(data.default_model || 'anthropic/claude-sonnet-4-6');
         setRefreshInterval(data.refresh_interval_minutes ?? 15);
         setMarketHoursOnly(data.market_hours_only ?? false);
       }
@@ -69,8 +88,12 @@ export default function Settings() {
     setSaved(false);
     try {
       const body = {};
-      if (anthropicKey) body.anthropic_api_key = anthropicKey;
-      if (fmpKey) body.fmp_api_key = fmpKey;
+      if (anthropicKey && !anthropicKey.includes('*')) body.anthropic_api_key = anthropicKey;
+      if (openaiKey && !openaiKey.includes('*')) body.openai_api_key = openaiKey;
+      if (googleKey && !googleKey.includes('*')) body.google_api_key = googleKey;
+      if (groqKey && !groqKey.includes('*')) body.groq_api_key = groqKey;
+      if (fmpKey && !fmpKey.includes('*')) body.fmp_api_key = fmpKey;
+      body.default_model = defaultModel;
       body.refresh_interval_minutes = refreshInterval;
       body.market_hours_only = marketHoursOnly;
 
@@ -84,8 +107,14 @@ export default function Settings() {
       if (response.ok) {
         const data = await response.json();
         setMaskedAnthropicKey(data.anthropic_api_key || '');
+        setMaskedOpenaiKey(data.openai_api_key || '');
+        setMaskedGoogleKey(data.google_api_key || '');
+        setMaskedGroqKey(data.groq_api_key || '');
         setMaskedFmpKey(data.fmp_api_key || '');
         setAnthropicKey('');
+        setOpenaiKey('');
+        setGoogleKey('');
+        setGroqKey('');
         setFmpKey('');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
@@ -286,6 +315,117 @@ export default function Settings() {
                   financialmodelingprep.com/developer
                 </a>
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Additional AI Providers */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Additional AI Providers</CardTitle>
+            <CardDescription>
+              Add API keys for other LLM providers to use in the chat sidebar.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Default Model */}
+            <div className="space-y-2">
+              <Label htmlFor="default-model">Default Model</Label>
+              <select
+                id="default-model"
+                value={defaultModel}
+                onChange={(e) => setDefaultModel(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {availableModels.map((m) => (
+                  <option key={m.id} value={m.id}>{m.display_name} ({m.provider})</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">Model used for new conversations.</p>
+            </div>
+
+            <Separator />
+
+            {/* OpenAI API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="openai-key">OpenAI API Key</Label>
+              {maskedOpenaiKey && (
+                <p className="text-xs text-muted-foreground">
+                  Current: <code className="bg-muted px-1 py-0.5 rounded text-xs">{maskedOpenaiKey}</code>
+                </p>
+              )}
+              <div className="relative">
+                <Input
+                  id="openai-key"
+                  type={showOpenaiKey ? 'text' : 'password'}
+                  placeholder="sk-..."
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOpenaiKey(!showOpenaiKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showOpenaiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Google API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="google-key">Google AI API Key</Label>
+              {maskedGoogleKey && (
+                <p className="text-xs text-muted-foreground">
+                  Current: <code className="bg-muted px-1 py-0.5 rounded text-xs">{maskedGoogleKey}</code>
+                </p>
+              )}
+              <div className="relative">
+                <Input
+                  id="google-key"
+                  type={showGoogleKey ? 'text' : 'password'}
+                  placeholder="AIza..."
+                  value={googleKey}
+                  onChange={(e) => setGoogleKey(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleKey(!showGoogleKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showGoogleKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Groq API Key */}
+            <div className="space-y-2">
+              <Label htmlFor="groq-key">Groq API Key</Label>
+              {maskedGroqKey && (
+                <p className="text-xs text-muted-foreground">
+                  Current: <code className="bg-muted px-1 py-0.5 rounded text-xs">{maskedGroqKey}</code>
+                </p>
+              )}
+              <div className="relative">
+                <Input
+                  id="groq-key"
+                  type={showGroqKey ? 'text' : 'password'}
+                  placeholder="gsk_..."
+                  value={groqKey}
+                  onChange={(e) => setGroqKey(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGroqKey(!showGroqKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showGroqKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </CardContent>
         </Card>
