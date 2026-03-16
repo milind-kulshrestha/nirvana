@@ -6,6 +6,51 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-16] - Multi-LLM Support via LiteLLM
+
+### Added
+- **`backend/app/lib/agent/models.py`** (new) — Model registry with 8 supported models across 4 providers
+  - Anthropic: Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5
+  - OpenAI: GPT-4o, GPT-4o Mini
+  - Google: Gemini 2.0 Flash, Gemini 1.5 Pro
+  - Groq: Llama 3.3 70B
+  - `DEFAULT_MODEL`, `MEMORY_EXTRACTION_MODEL`, `MODEL_IDS` constants
+- **`backend/app/lib/agent/tool_adapter.py`** (new) — Anthropic→OpenAI format converter
+  - `anthropic_tools_to_openai()` — converts `input_schema` to `parameters`, wraps in `{"type": "function"}`
+  - `convert_messages_to_openai()` — prepends `{"role": "system"}` message from system prompt kwarg
+- **`GET /api/settings/models`** — Returns model registry for frontend dropdowns (no `config_key` exposed)
+- **`litellm>=1.40.0`** dependency added to `requirements.txt`
+- **Model selector dropdown** in AISidebar header — disabled while streaming, fetches models on mount
+- **"Additional AI Providers" card** in Settings page — OpenAI, Google, Groq key inputs + default model selector
+- **`selectedModel` state** in `chatStore.js` — persisted to `localStorage` under key `nirvana_selected_model`
+- New config keys: `openai_api_key`, `google_api_key`, `groq_api_key`, `default_model` in `DEFAULT_CONFIG` and `SECRET_KEYS`
+- New `Settings` properties: `OPENAI_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `DEFAULT_MODEL`
+- New `UpdateSettingsRequest` fields: `openai_api_key`, `google_api_key`, `groq_api_key`, `default_model`
+- Vitest + happy-dom test infrastructure for frontend unit tests
+
+### Changed
+- **`harness.py`** — Full rewrite from Anthropic SDK to LiteLLM
+  - `InvestmentAgent.__init__` accepts `model: str | None` parameter; validates against `MODEL_IDS`, falls back to `DEFAULT_MODEL`
+  - Removed `self.client` (Anthropic SDK instance); replaced with `litellm.acompletion()` calls
+  - New `_build_litellm_kwargs()` helper: converts messages + tools to OpenAI format, injects per-provider `api_key`
+  - Streaming loop: accumulates tool call fragments by `delta.tool_calls[n].index` across chunks; parses args after `finish_reason="tool_calls"`
+  - `extract_memory_facts()` uses `litellm.acompletion()` with `stream=False`; catches `Exception` instead of `anthropic.*`
+  - Error handling: `litellm.ContextWindowExceededError` replaces `anthropic.BadRequestError`
+- **`chat.py`** — `SendMessageRequest` gains `model: Optional[str] = None`; passed to `service.stream_chat()`
+- **`chat_service.py`** — `stream_chat()` signature gains `model=None`; passed to `InvestmentAgent()`
+- **`settings.py`** — `UpdateSettingsRequest` extended with provider keys and `default_model`
+- **`chatStore.js`** — `sendMessage()` includes `model: get().selectedModel` in request body
+- **`AISidebar.jsx`** — Fetches `/api/settings/models` on mount; renders `<select>` below header title row
+- **`Settings.jsx`** — Loads/saves provider keys and `default_model`; new "Additional AI Providers" card
+
+### Tests Added
+- `backend/tests/test_config_multi_llm.py` — 3 tests for DEFAULT_CONFIG and SECRET_KEYS
+- `backend/tests/test_tool_adapter.py` — 3 tests for format conversion functions
+- `backend/tests/test_harness_litellm.py` — streaming token + done event test with mocked litellm
+- `backend/tests/test_chat_model_routing.py` — model field on request schema + model threading to agent
+- `backend/tests/test_settings_multi_llm.py` — UpdateSettingsRequest fields + /models endpoint
+- `frontend/src/stores/chatStore.test.js` — selectedModel state and localStorage persistence
+
 ## [2026-03-15] - Dexter Agent Loop Port
 
 ### Added

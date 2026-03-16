@@ -1,8 +1,8 @@
 # AI Agent Architecture
 
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-16
 
-The AI agent system provides conversational intelligence for stock analysis, portfolio management, and investment research using Claude via the Anthropic SDK.
+The AI agent system provides conversational intelligence for stock analysis, portfolio management, and investment research. It supports 8 LLM models across 4 providers via LiteLLM, with a model selector in the chat sidebar.
 
 ## Overview
 
@@ -21,6 +21,7 @@ The AI agent is a full-stack feature that enables users to:
 ├─────────────────────────────────────────────────────────────┤
 │  AISidebar                                                   │
 │  ├─ Chat Interface (messages, streaming)                    │
+│  ├─ Model Selector Dropdown (fetches /api/settings/models)  │
 │  ├─ Conversation History                                    │
 │  ├─ Tool Call Indicators                                    │
 │  └─ Pending Action Approvals                                │
@@ -31,7 +32,7 @@ The AI agent is a full-stack feature that enables users to:
 │  └─ Component Context Capture (StockRow, PriceChart)        │
 │                                                              │
 │  Zustand Stores:                                            │
-│  ├─ aiChatStore (chat state, SSE streaming)                 │
+│  ├─ chatStore (chat state, SSE streaming, selectedModel)    │
 │  └─ aiComponentStore (component registry)                   │
 └─────────────────────────────────────────────────────────────┘
                             │
@@ -76,10 +77,13 @@ The AI agent is a full-stack feature that enables users to:
 │                    AI Agent Core                             │
 ├─────────────────────────────────────────────────────────────┤
 │  InvestmentAgent (app/agent/harness.py)                     │
-│  ├─ Scratchpad-backed streaming tool-use loop               │
-│  ├─ Static context_messages + rebuilt current_prompt/iter  │
+│  ├─ LiteLLM-backed streaming (multi-provider)               │
+│  ├─ model param: validates against MODEL_IDS registry       │
+│  ├─ _build_litellm_kwargs(): OpenAI-format msgs + tools     │
+│  ├─ Scratchpad-backed loop: static context + rebuilt prompt │
+│  ├─ Tool call fragment accumulation (delta.tool_calls[idx]) │
 │  ├─ Soft tool limits + context overflow recovery            │
-│  ├─ Memory fact extraction                                  │
+│  ├─ Memory fact extraction (MEMORY_EXTRACTION_MODEL)        │
 │  └─ Multi-turn conversation handling                        │
 │                                                              │
 │  Scratchpad (app/agent/scratchpad.py)                       │
@@ -113,6 +117,16 @@ The AI agent is a full-stack feature that enables users to:
 │  ├─ TOOL_PROSE - rich per-tool descriptions (13 tools)      │
 │  ├─ build_system_prompt(memory, skills) - structured prompt │
 │  └─ build_iteration_prompt(query, results, usage) - loop   │
+│                                                              │
+│  Model Registry (app/agent/models.py)                       │
+│  ├─ MODEL_REGISTRY: 8 models × {id, display_name,          │
+│  │    provider, config_key}                                 │
+│  ├─ DEFAULT_MODEL = "anthropic/claude-sonnet-4-6"           │
+│  └─ MEMORY_EXTRACTION_MODEL = "anthropic/claude-haiku-4-5" │
+│                                                              │
+│  Tool Adapter (app/agent/tool_adapter.py)                   │
+│  ├─ anthropic_tools_to_openai() - input_schema→parameters  │
+│  └─ convert_messages_to_openai() - prepend system msg      │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -144,8 +158,11 @@ The AI agent is a full-stack feature that enables users to:
 ┌─────────────────────────────────────────────────────────────┐
 │                   External Services                          │
 ├─────────────────────────────────────────────────────────────┤
-│  Anthropic Claude API                                        │
-│  └─ Streaming Messages API with tool use                    │
+│  LiteLLM (unified provider interface)                        │
+│  ├─ Anthropic Claude (Sonnet 4.6, Opus 4.6, Haiku 4.5)     │
+│  ├─ OpenAI GPT (gpt-4o, gpt-4o-mini)                       │
+│  ├─ Google Gemini (2.0 Flash, 1.5 Pro)                     │
+│  └─ Groq (Llama 3.3 70B)                                   │
 │                                                              │
 │  OpenBB SDK                                                  │
 │  └─ Market data (quotes, history) via FMP provider          │
@@ -181,9 +198,11 @@ The AI agent is a full-stack feature that enables users to:
 
 ### 2. Frontend State Management
 
-#### aiChatStore (`frontend/src/stores/aiChatStore.js`)
+#### chatStore (`frontend/src/stores/chatStore.js`)
 - Manages chat state (messages, conversations, loading)
-- SSE streaming with EventSource
+- `selectedModel` — persisted to `localStorage` under `nirvana_selected_model`; sent in every request
+- `setSelectedModel(model)` — updates state + localStorage
+- SSE streaming with fetch + ReadableStream
 - Handles tool calls and pending actions
 - Exposes actions: `sendMessage()`, `loadConversations()`, `confirmAction()`, `rejectAction()`
 
@@ -230,15 +249,16 @@ DELETE /api/skills/:id                   # Delete user skill
 ### 5. AI Agent Core
 
 #### InvestmentAgent (`backend/app/lib/agent/harness.py`)
-- Wraps Anthropic SDK Messages API with scratchpad-backed loop
+- Uses LiteLLM for multi-provider streaming; model validated against `MODEL_IDS`
+- `_build_litellm_kwargs()`: converts messages + tools to OpenAI format, injects per-provider `api_key`
 - Loop architecture (Dexter port):
   1. Extract `query_text` from last user message; create `Scratchpad`
   2. `context_messages` = prior turns (static); `current_prompt` rebuilt each iteration
-  3. Stream `[context_messages + current_prompt]` to Claude
-  4. On `BadRequestError` (overflow): clear oldest results, retry (max 2 times)
+  3. Stream via `litellm.acompletion(**kwargs)`; accumulate `delta.tool_calls[n]` fragments by index
+  4. On `ContextWindowExceededError`: clear oldest results, retry (max 2 times)
   5. For each tool call: check soft limits, execute, record in scratchpad
   6. After all tool calls: check `CONTEXT_THRESHOLD`; rebuild `current_prompt` via `build_iteration_prompt`
-  7. Loop until no tool calls in response
+  7. Loop until no tool calls in response (`pending_tool_calls` empty)
 - Constants: `CONTEXT_THRESHOLD=100_000`, `KEEP_TOOL_USES=5`, `OVERFLOW_KEEP_TOOL_USES=3`, `MAX_OVERFLOW_RETRIES=2`
 - SSE events emitted: `token`, `tool_call`, `tool_result`, `action_proposed`, `tool_limit`, `context_cleared`, `done`, `error`
 
@@ -417,19 +437,36 @@ User: "I'm a conservative investor focused on dividend stocks"
 
 ### Environment Variables
 ```bash
-# Required
+# Anthropic (required for default model)
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Optional (defaults shown)
-CLAUDE_MODEL=claude-3-5-sonnet-20241022
-CLAUDE_MAX_TOKENS=4096
+# Additional providers (optional)
+OPENAI_API_KEY=sk-...
+GOOGLE_API_KEY=AIza...
+GROQ_API_KEY=gsk_...
+
+# Override default model (optional)
+DEFAULT_MODEL=anthropic/claude-sonnet-4-6
 ```
 
 ### Backend Config (`backend/app/config.py`)
 ```python
-ANTHROPIC_API_KEY: str
-CLAUDE_MODEL: str = "claude-3-5-sonnet-20241022"
-CLAUDE_MAX_TOKENS: int = 4096
+ANTHROPIC_API_KEY: str   # env or config.json
+OPENAI_API_KEY: str      # env or config.json
+GOOGLE_API_KEY: str      # env or config.json
+GROQ_API_KEY: str        # env or config.json
+DEFAULT_MODEL: str       # env or config.json, default "anthropic/claude-sonnet-4-6"
+```
+
+### config.json keys (`~/.nirvana/config.json`)
+```json
+{
+  "anthropic_api_key": "...",
+  "openai_api_key": "...",
+  "google_api_key": "...",
+  "groq_api_key": "...",
+  "default_model": "anthropic/claude-sonnet-4-6"
+}
 ```
 
 ## Security Considerations

@@ -1,12 +1,22 @@
 # Project Status
 
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-16
 
-## Current Status: Dexter Agent Loop Port Complete
+## Current Status: Multi-LLM Support Complete
 
 Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
 
-### Latest Accomplishments (2026-03-15)
+### Latest Accomplishments (2026-03-16)
+- ✅ **Multi-LLM Support** — LiteLLM replaces hardcoded Anthropic SDK; users can select any of 8 models
+  - `models.py`: registry of 8 models across Anthropic, OpenAI, Google, Groq
+  - `tool_adapter.py`: Anthropic→OpenAI tool/message format converter
+  - `harness.py` rewritten: `litellm.acompletion()` with streaming delta accumulation for tool calls
+  - `model` param threaded: API request → `SendMessageRequest` → `stream_chat()` → `InvestmentAgent()`
+  - `GET /api/settings/models` endpoint + provider key fields in settings API
+  - Model selector dropdown in AISidebar; persisted to localStorage via chatStore
+  - "Additional AI Providers" card in Settings for OpenAI, Google, Groq keys + default model
+
+### Previous Accomplishments (2026-03-15)
 - ✅ **Dexter Agent Loop** — Scratchpad-backed context management ported from Dexter TypeScript architecture
   - `scratchpad.py` (new): JSONL log, soft tool limits, Jaccard similarity dedup, context clearing
   - `build_iteration_prompt` rebuilds user turn each loop with accumulated tool results
@@ -75,7 +85,8 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
   - ✅ Watchlist-filtered and market-wide views
   - ✅ Discover page with integrated calendar sidebar
 - ✅ **AI Agent Integration**
-  - ✅ Conversational AI assistant powered by Claude
+  - ✅ Conversational AI assistant (multi-provider via LiteLLM)
+  - ✅ **Multi-LLM model selector** — 8 models across Anthropic, OpenAI, Google, Groq
   - ✅ Stock research and analysis tools
   - ✅ 5 pre-built investment skills
   - ✅ Streaming chat with SSE
@@ -100,7 +111,7 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
 - **Market Data**: OpenBB SDK with FMP provider + DuckDB cache
 - **Caching**: DuckDB for market data, APScheduler for background refresh
 - **Auth**: Session cookies (or single-user bypass) with itsdangerous + bcrypt
-- **AI**: Anthropic Claude SDK (claude-sonnet-4-5) with streaming tool use
+- **AI**: LiteLLM (multi-provider) — Anthropic Claude, OpenAI GPT-4o, Google Gemini, Groq Llama
 - **CI/CD**: GitHub Actions with Tauri build action
 
 ### Next Steps
@@ -108,6 +119,7 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
 2. **Code signing** - Apple Developer ID + Windows signing cert
 3. **Python bundling** - Embed Python runtime in app bundle for distribution
 4. **API base URL** - Make frontend API URL configurable (currently hardcoded)
+5. **Provider key validation** — Add "Test" buttons for OpenAI/Google/Groq keys in Settings (mirrors Anthropic pattern)
 
 ### Future Enhancements
 1. MCP server support (OpenBB, file I/O, DuckDB)
@@ -125,6 +137,16 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
 ## Milestone History
 
 ### Completed Milestones
+
+#### Milestone 9: Multi-LLM Support via LiteLLM (Mar 16, 2026) ✅
+- Replaced Anthropic SDK with LiteLLM — supports Anthropic, OpenAI, Google, Groq
+- `models.py`: MODEL_REGISTRY with 8 models; `DEFAULT_MODEL`, `MEMORY_EXTRACTION_MODEL` constants
+- `tool_adapter.py`: Anthropic→OpenAI format conversion (tools + messages)
+- `harness.py` rewrite: `litellm.acompletion()`, streaming delta accumulation, per-provider API key injection
+- `model` param threaded: `SendMessageRequest` → `stream_chat()` → `InvestmentAgent()`
+- `GET /api/settings/models` + provider key fields in settings API + config
+- Model selector in AISidebar (dropdown, localStorage-persisted); provider key inputs in Settings page
+- 14 new tests (12 backend, 2 frontend); vitest + happy-dom test infrastructure added
 
 #### Milestone 8: Dexter Agent Loop Port (Mar 15, 2026) ✅
 - Scratchpad-backed context management (`scratchpad.py`) — JSONL per query, soft limits, Jaccard dedup
