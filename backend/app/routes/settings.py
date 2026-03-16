@@ -10,7 +10,11 @@ router = APIRouter()
 
 class UpdateSettingsRequest(BaseModel):
     anthropic_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None
+    google_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
     fmp_api_key: Optional[str] = None
+    default_model: Optional[str] = None
     refresh_interval_minutes: Optional[int] = None
     market_hours_only: Optional[bool] = None
 
@@ -43,6 +47,13 @@ async def update_settings(req: UpdateSettingsRequest):
         else:
             masked[key] = value
     return masked
+
+
+@router.get("/models")
+async def get_available_models():
+    """Return all supported LLM models (without internal config_key detail)."""
+    from app.lib.agent.models import MODEL_REGISTRY
+    return [{"id": m["id"], "display_name": m["display_name"], "provider": m["provider"]} for m in MODEL_REGISTRY]
 
 
 @router.get("/status")
