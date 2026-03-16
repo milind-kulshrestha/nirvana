@@ -24,6 +24,7 @@ class SendMessageRequest(BaseModel):
     content: str
     conversation_id: Optional[int] = None
     component_context: Optional[dict] = None
+    model: Optional[str] = None
 
 
 class ConversationResponse(BaseModel):
@@ -139,6 +140,7 @@ async def send_message(
                 conversation,
                 request.content,
                 request.component_context,
+                model=request.model,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:

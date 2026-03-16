@@ -113,6 +113,7 @@ class ChatService:
         conversation: Conversation,
         user_content: str,
         component_context: dict | None = None,
+        model: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Stream a full chat turn: save user msg, get AI response, save assistant msg.
 
@@ -140,6 +141,7 @@ class ChatService:
             user_id=self.user_id,
             db=self.db,
             conversation_id=conversation.id,
+            model=model,
         )
 
         full_response = ""
