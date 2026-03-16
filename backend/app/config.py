@@ -59,6 +59,22 @@ class Settings:
             return env_val
         return _get_config_manager().get("anthropic_api_key", "")
 
+    @property
+    def OPENAI_API_KEY(self) -> str:
+        return os.getenv("OPENAI_API_KEY") or _get_config_manager().get("openai_api_key", "")
+
+    @property
+    def GOOGLE_API_KEY(self) -> str:
+        return os.getenv("GOOGLE_API_KEY") or _get_config_manager().get("google_api_key", "")
+
+    @property
+    def GROQ_API_KEY(self) -> str:
+        return os.getenv("GROQ_API_KEY") or _get_config_manager().get("groq_api_key", "")
+
+    @property
+    def DEFAULT_MODEL(self) -> str:
+        return os.getenv("DEFAULT_MODEL") or _get_config_manager().get("default_model", "anthropic/claude-sonnet-4-6")
+
     # CORS
     CORS_ORIGINS: list[str] = os.getenv(
         "CORS_ORIGINS", "http://localhost:5173"

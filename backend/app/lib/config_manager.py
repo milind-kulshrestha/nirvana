@@ -9,13 +9,17 @@ from typing import Any, Optional
 # Default configuration schema
 DEFAULT_CONFIG = {
     "anthropic_api_key": "",
+    "openai_api_key": "",
+    "google_api_key": "",
+    "groq_api_key": "",
     "fmp_api_key": "",
+    "default_model": "anthropic/claude-sonnet-4-6",
     "refresh_interval_minutes": 15,
     "market_hours_only": True,
 }
 
 # Keys that contain secrets (should be masked in GET responses)
-SECRET_KEYS = {"anthropic_api_key", "fmp_api_key"}
+SECRET_KEYS = {"anthropic_api_key", "openai_api_key", "google_api_key", "groq_api_key", "fmp_api_key"}
 
 CONFIG_DIR = Path.home() / ".nirvana"
 CONFIG_PATH = CONFIG_DIR / "config.json"
