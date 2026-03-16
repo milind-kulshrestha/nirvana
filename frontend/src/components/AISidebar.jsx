@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import useChatStore from '../stores/chatStore';
+import { API_BASE } from '../config';
 
 export default function AISidebar() {
   const {
@@ -19,10 +20,13 @@ export default function AISidebar() {
     confirmAction,
     rejectAction,
     clearError,
+    selectedModel,
+    setSelectedModel,
   } = useChatStore();
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [availableModels, setAvailableModels] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -32,6 +36,13 @@ export default function AISidebar() {
       inputRef.current?.focus();
     }
   }, [sidebarOpen, loadConversations]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/settings/models`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setAvailableModels)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -89,6 +100,23 @@ export default function AISidebar() {
           </button>
         </div>
       </div>
+
+      {/* Model Selector */}
+      {availableModels.length > 0 && (
+        <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
+          <select
+            aria-label="model"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={isStreaming}
+            className="w-full text-xs border border-gray-200 rounded-md px-2 py-1 bg-white text-gray-700 focus:ring-1 focus:ring-indigo-500 outline-none disabled:opacity-50"
+          >
+            {availableModels.map((m) => (
+              <option key={m.id} value={m.id}>{m.display_name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Conversation History Dropdown */}
       {showHistory && (
