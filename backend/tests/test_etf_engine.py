@@ -72,3 +72,41 @@ def test_get_rrs_chart_data_none_returns_empty():
     from app.lib.etf_engine import get_rrs_chart_data
     result = get_rrs_chart_data(None)
     assert result == []
+
+
+def test_fetch_etf_row_returns_dict(monkeypatch):
+    """fetch_etf_row returns a dict with expected keys when yfinance works."""
+    from app.lib.etf_engine import fetch_etf_row
+
+    hist_60 = _make_hist(60)
+    hist_21 = _make_hist(21)
+    hist_120 = _make_hist(120)
+
+    class FakeTicker:
+        def history(self, period=None, start=None, end=None):
+            if period == "21d":
+                return hist_21
+            if period == "60d":
+                return hist_60
+            return hist_120
+
+    monkeypatch.setattr("yfinance.Ticker", lambda sym: FakeTicker())
+    result = fetch_etf_row("SPY", "Indices")
+    assert result is not None
+    assert result["symbol"] == "SPY"
+    assert result["group_name"] == "Indices"
+    assert "abc" in result
+    assert "atr_pct" in result
+    assert isinstance(result["rrs_chart"], list)
+
+
+def test_fetch_etf_row_returns_none_on_insufficient_data(monkeypatch):
+    from app.lib.etf_engine import fetch_etf_row
+
+    class EmptyTicker:
+        def history(self, **kwargs):
+            return pd.DataFrame()
+
+    monkeypatch.setattr("yfinance.Ticker", lambda sym: EmptyTicker())
+    result = fetch_etf_row("BAD", "Indices")
+    assert result is None

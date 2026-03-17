@@ -184,4 +184,141 @@ def get_rrs_chart_data(rrs_df: pd.DataFrame | None, n: int = 20) -> list[float]:
     if rrs_df is None or len(rrs_df) == 0:
         return []
     vals = rrs_df["rollingRRS"].tail(n).tolist()
-    return [round(float(v), 4) if v == v else 0.0 for v in vals]  # NaN → 0.0
+    return [round(float(v), 4) if np.isfinite(v) else 0.0 for v in vals]  # NaN/inf → 0.0
+
+
+# ---------------------------------------------------------------------------
+# yfinance fetch functions (synchronous — call via asyncio.to_thread)
+# ---------------------------------------------------------------------------
+
+def _get_leveraged(ticker: str) -> tuple[list[str], list[str]]:
+    entry = LEVERAGED_ETFS.get(ticker.upper(), {})
+    return entry.get("long", []), entry.get("short", [])
+
+
+def fetch_etf_row(symbol: str, group_name: str) -> dict | None:
+    """
+    Fetch all metrics for one ETF symbol via yfinance.
+    Returns a flat dict ready for save_etf_snapshot(), or None on failure.
+    Synchronous — call via asyncio.to_thread() from async contexts.
+    """
+    try:
+        stock = yf.Ticker(symbol)
+        hist_21  = stock.history(period="21d")
+        hist_60  = stock.history(period="60d")
+        if len(hist_21) < 2 or len(hist_60) < 50:
+            return None
+
+        daily = float((hist_21["Close"].iloc[-1] / hist_21["Close"].iloc[-2] - 1) * 100)
+        intra = float((hist_21["Close"].iloc[-1] / hist_21["Open"].iloc[-1] - 1) * 100)
+        d5    = float((hist_21["Close"].iloc[-1] / hist_21["Close"].iloc[-6] - 1) * 100) if len(hist_21) >= 6 else None
+        d20   = float((hist_21["Close"].iloc[-1] / hist_21["Close"].iloc[-21] - 1) * 100) if len(hist_21) >= 21 else None
+
+        sma50   = calculate_sma(hist_60)
+        atr     = calculate_atr(hist_60)
+        current = float(hist_60["Close"].iloc[-1])
+        atr_pct = round((atr / current) * 100, 1) if (atr and current) else None
+        dist    = round(100 * (current / sma50 - 1) / atr_pct, 2) if (sma50 and atr_pct and atr_pct != 0) else None
+        abc     = calculate_abc_rating(hist_60)
+
+        rrs_df  = None
+        rs_sts  = None
+        try:
+            end   = datetime.now()
+            start = end - timedelta(days=120)
+            hist_120 = stock.history(start=start, end=end)
+            spy_120  = yf.Ticker("SPY").history(start=start, end=end)
+            if len(hist_120) >= 21 and len(spy_120) >= 21:
+                rrs_df = calculate_rrs(hist_120, spy_120)
+                if rrs_df is not None and len(rrs_df) >= 21:
+                    recent = rrs_df["rollingRRS"].iloc[-21:]
+                    ranks  = rankdata(recent, method="average")
+                    rs_sts = round(float((ranks[-1] - 1) / (len(recent) - 1) * 100), 0)
+        except Exception as e:
+            logger.debug("RRS error %s: %s", symbol, e)
+
+        long_etfs, short_etfs = _get_leveraged(symbol)
+
+        return {
+            "symbol":         symbol.upper(),
+            "group_name":     group_name,
+            "daily":          round(daily, 2),
+            "intra":          round(intra, 2),
+            "d5":             round(d5, 2) if d5 is not None else None,
+            "d20":            round(d20, 2) if d20 is not None else None,
+            "atr_pct":        atr_pct,
+            "dist_sma50_atr": dist,
+            "rs":             rs_sts,
+            "abc":            abc,
+            "long_etfs":      long_etfs,
+            "short_etfs":     short_etfs,
+            "rrs_chart":      get_rrs_chart_data(rrs_df),
+        }
+    except Exception as e:
+        logger.warning("Error fetching %s: %s", symbol, e)
+        return None
+
+
+def fetch_etf_holdings_sync(symbol: str) -> list[dict]:
+    """Fetch top 10 holdings for an ETF via yfinance. Returns [] on failure."""
+    try:
+        ticker = yf.Ticker(symbol)
+        df = ticker.funds_data.top_holdings
+        if df is not None and len(df) > 0:
+            holdings = []
+            for idx, row in df.head(10).iterrows():
+                holding_symbol = str(idx) if str(idx) != "nan" else str(row.get("Symbol", ""))
+                weight = row.get("Holding Percent", row.get("weight"))
+                try:
+                    weight = float(weight) if weight is not None else None
+                except (ValueError, TypeError):
+                    weight = None
+                holdings.append({"symbol": holding_symbol, "weight": weight})
+            return holdings
+    except Exception as e:
+        logger.debug("Holdings error %s: %s", symbol, e)
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Async orchestration (used by the SSE refresh endpoint)
+# ---------------------------------------------------------------------------
+
+async def stream_etf_refresh(
+    custom_symbols: list[str],
+) -> AsyncIterator[dict]:
+    """
+    Async generator that fetches all preset + custom ETFs and yields progress events.
+
+    Yields dicts:
+      { "type": "progress", "symbol": "SPY", "done": 12, "total": 180 }
+      { "type": "error",    "symbol": "XYZ", "msg": "no data", "done": 12, "total": 180 }
+      { "type": "complete", "built_at": "..." }
+    """
+    from app.lib.market_cache import save_etf_snapshot
+
+    # Build ordered work list: preset groups + Custom group
+    work: list[tuple[str, str]] = []
+    preset_symbols = set()
+    for group_name, symbols in STOCK_GROUPS.items():
+        for sym in symbols:
+            work.append((sym, group_name))
+            preset_symbols.add(sym.upper())
+    for sym in custom_symbols:
+        if sym.upper() not in preset_symbols:
+            work.append((sym.upper(), "Custom"))
+
+    total = len(work)
+    rows: list[dict] = []
+
+    for done, (symbol, group_name) in enumerate(work, start=1):
+        row = await asyncio.to_thread(fetch_etf_row, symbol, group_name)
+        if row:
+            rows.append(row)
+            yield {"type": "progress", "symbol": symbol, "done": done, "total": total}
+        else:
+            yield {"type": "error", "symbol": symbol, "msg": "no data", "done": done, "total": total}
+
+    built_at = datetime.now(timezone.utc)
+    save_etf_snapshot(rows, built_at)
+    yield {"type": "complete", "built_at": built_at.isoformat()}
