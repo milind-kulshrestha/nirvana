@@ -100,12 +100,22 @@ function HoldingsPopover({ symbol }) {
           <div className="font-semibold mb-1">{symbol} Top Holdings</div>
           {loading && <div className="text-muted-foreground">Loading…</div>}
           {holdings && holdings.length === 0 && <div className="text-muted-foreground">No data</div>}
-          {holdings && holdings.map((h, i) => (
-            <div key={i} className="flex justify-between py-0.5">
-              <span>{h.symbol}</span>
-              <span className="text-muted-foreground">{h.weight != null ? `${(h.weight * 100).toFixed(1)}%` : '—'}</span>
-            </div>
-          ))}
+          {holdings && holdings.map((h, i) => {
+            const pct = h.weight != null ? Math.round(h.weight * 100 * 10) / 10 : null;
+            return (
+              <div key={i} className="py-0.5">
+                <div className="flex justify-between mb-0.5">
+                  <span>{h.symbol}</span>
+                  <span className="text-muted-foreground">{pct != null ? `${pct}%` : '—'}</span>
+                </div>
+                {pct != null && (
+                  <div className="h-0.5 bg-muted rounded-full w-full">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, pct * 5)}%` }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
