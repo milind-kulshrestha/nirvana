@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../stores/authStore';
 import useEtfStore from '../stores/etfStore';
@@ -43,7 +43,7 @@ function BarCell({ value, range, decimals = 2 }) {
 
 // --- RS sparkline SVG ---
 function RsSparkline({ data }) {
-  if (!data || data.length === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  if (!data || data.length < 2) return <span className="text-muted-foreground text-xs">—</span>;
   const w = 80, h = 28;
   const min = Math.min(...data), max = Math.max(...data);
   const range = max - min || 1;
@@ -74,6 +74,18 @@ function HoldingsPopover({ symbol }) {
   const [open, setOpen] = useState(false);
   const [holdings, setHoldings] = useState(null);
   const [loading, setLoading] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
 
   const load = async () => {
     if (open) { setOpen(false); return; }
@@ -88,9 +100,11 @@ function HoldingsPopover({ symbol }) {
   };
 
   return (
-    <div className="relative inline-block">
+    <div ref={containerRef} className="relative inline-block">
       <button
         onClick={load}
+        aria-label={`View top holdings for ${symbol}`}
+        aria-expanded={open}
         className="text-xs px-1.5 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground font-mono"
       >
         H
@@ -222,10 +236,16 @@ export default function ETFDashboard() {
   useEffect(() => {
     fetchSnapshot();
     fetchCustomSymbols();
-  }, []);
+  }, [fetchSnapshot, fetchCustomSymbols]);
 
   const groups = snapshot?.groups ?? {};
   const availableGroups = GROUP_ORDER.filter(g => groups[g]?.length > 0 || g === 'Custom');
+
+  useEffect(() => {
+    if (!availableGroups.includes(activeGroup)) {
+      setActiveGroup(availableGroups[0] ?? 'Indices');
+    }
+  }, [snapshot]);
 
   const handleAddSymbol = async () => {
     const sym = newSymbol.trim().toUpperCase();

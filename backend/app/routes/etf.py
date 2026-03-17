@@ -35,10 +35,22 @@ async def refresh(
     custom_symbols = [row.symbol for row in db.query(EtfCustomSymbol).all()]
 
     async def event_stream():
-        async for event in stream_etf_refresh(custom_symbols):
-            yield f"data: {json.dumps(event)}\n\n"
+        try:
+            async for event in stream_etf_refresh(custom_symbols):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error(f"ETF refresh stream error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'msg': str(e)})}\n\n"
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/holdings/{symbol}")
