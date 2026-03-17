@@ -255,7 +255,7 @@ def fetch_etf_row(symbol: str, group_name: str) -> dict | None:
             "rrs_chart":      get_rrs_chart_data(rrs_df),
         }
     except Exception as e:
-        logger.warning("Error fetching %s: %s", symbol, e)
+        logger.warning("Error fetching %s: %s", symbol, e, exc_info=True)
         return None
 
 
@@ -267,7 +267,9 @@ def fetch_etf_holdings_sync(symbol: str) -> list[dict]:
         if df is not None and len(df) > 0:
             holdings = []
             for idx, row in df.head(10).iterrows():
-                holding_symbol = str(idx) if str(idx) != "nan" else str(row.get("Symbol", ""))
+                holding_symbol = str(row.get("Symbol", "")) if pd.isna(idx) else str(idx).strip()
+                if not holding_symbol or holding_symbol == "nan":
+                    continue
                 weight = row.get("Holding Percent", row.get("weight"))
                 try:
                     weight = float(weight) if weight is not None else None
