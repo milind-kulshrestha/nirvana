@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.routes import auth, watchlists, securities, market, chat, skills
 from app.routes import settings as settings_routes
+from app.routes import etf as etf_routes
 
 # Create FastAPI app
 app = FastAPI(
@@ -36,6 +37,7 @@ app.include_router(market.router, prefix="/api/market", tags=["Market"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])
 app.include_router(settings_routes.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(etf_routes.router, prefix="/api/etf", tags=["ETF"])
 
 
 @app.on_event("startup")
@@ -78,6 +80,32 @@ async def configure_openbb():
             json.dump(settings_data, f, indent=4)
 
         print(f"✓ OpenBB configured with FMP API key")
+
+
+@app.on_event("startup")
+async def start_fmp_mcp():
+    """Start the FMP MCP server for enhanced financial data access."""
+    try:
+        from app.lib.fmp_mcp import fmp_mcp
+        api_key = settings.OPENBB_API_KEY
+        success = await fmp_mcp.start(api_key)
+        if success:
+            tools = await fmp_mcp.get_tools()
+            print(f"✓ FMP MCP server started ({len(tools)} tools available)")
+        else:
+            print("⚠ FMP MCP server unavailable (agent uses built-in tools only)")
+    except Exception as e:
+        print(f"⚠ FMP MCP startup error: {e}")
+
+
+@app.on_event("shutdown")
+async def stop_fmp_mcp():
+    """Stop the FMP MCP server gracefully."""
+    try:
+        from app.lib.fmp_mcp import fmp_mcp
+        await fmp_mcp.stop()
+    except Exception:
+        pass
 
 
 @app.on_event("startup")
