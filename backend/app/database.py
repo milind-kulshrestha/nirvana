@@ -38,7 +38,7 @@ def init_db():
     """Create all tables (used in SQLite / single-user mode instead of Alembic)."""
     from app.models import (
         User, Watchlist, WatchlistItem, Conversation,
-        Message, MemoryFact, PendingAction, Skill,
+        Message, MemoryFact, PendingAction, Skill, EtfCustomSymbol,
     )
     Base.metadata.create_all(bind=engine)
 

@@ -7,6 +7,7 @@ from app.models.message import Message
 from app.models.memory_fact import MemoryFact
 from app.models.pending_action import PendingAction
 from app.models.skill import Skill
+from app.models.etf_custom_symbol import EtfCustomSymbol
 
 __all__ = [
     "User",
@@ -17,4 +18,5 @@ __all__ = [
     "MemoryFact",
     "PendingAction",
     "Skill",
+    "EtfCustomSymbol",
 ]
