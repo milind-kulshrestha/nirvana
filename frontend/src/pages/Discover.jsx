@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { TrendingUp, Settings, Compass, RefreshCw } from 'lucide-react';
+import { TrendingUp, Settings, Compass, RefreshCw, BarChart2 } from 'lucide-react';
 import CalendarWidget from '../components/CalendarWidget';
 import { API_BASE } from '../config';
 
@@ -126,6 +126,12 @@ export default function Discover() {
               <span className="px-3 py-1.5 rounded-md bg-accent text-foreground font-medium">
                 Discover
               </span>
+              <Link
+                to="/etf"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
+              >
+                <BarChart2 className="h-4 w-4" /> ETF
+              </Link>
             </nav>
           </div>
 
