@@ -268,35 +268,41 @@ def cache_fundamentals(symbol: str, data: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 def save_etf_snapshot(rows: list[dict], built_at) -> None:
-    """Replace all ETF snapshot rows with fresh data."""
+    """Replace all ETF snapshot rows with fresh data (atomic via transaction)."""
     conn = _get_connection()
     with _lock:
-        conn.execute("DELETE FROM etf_snapshot")
-        for row in rows:
-            conn.execute(
-                """
-                INSERT INTO etf_snapshot
-                    (symbol, group_name, built_at, daily, intra, d5, d20,
-                     atr_pct, dist_sma50_atr, rs, abc, long_etfs, short_etfs, rrs_chart)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                [
-                    row["symbol"].upper(),
-                    row["group_name"],
-                    built_at,
-                    row.get("daily"),
-                    row.get("intra"),
-                    row.get("d5"),
-                    row.get("d20"),
-                    row.get("atr_pct"),
-                    row.get("dist_sma50_atr"),
-                    row.get("rs"),
-                    row.get("abc"),
-                    json.dumps(row.get("long_etfs", [])),
-                    json.dumps(row.get("short_etfs", [])),
-                    json.dumps(row.get("rrs_chart", [])),
-                ],
-            )
+        conn.execute("BEGIN")
+        try:
+            conn.execute("DELETE FROM etf_snapshot")
+            for row in rows:
+                conn.execute(
+                    """
+                    INSERT INTO etf_snapshot
+                        (symbol, group_name, built_at, daily, intra, d5, d20,
+                         atr_pct, dist_sma50_atr, rs, abc, long_etfs, short_etfs, rrs_chart)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        row["symbol"].upper(),
+                        row["group_name"],
+                        built_at,
+                        row.get("daily"),
+                        row.get("intra"),
+                        row.get("d5"),
+                        row.get("d20"),
+                        row.get("atr_pct"),
+                        row.get("dist_sma50_atr"),
+                        row.get("rs"),
+                        row.get("abc"),
+                        json.dumps(row.get("long_etfs", [])),
+                        json.dumps(row.get("short_etfs", [])),
+                        json.dumps(row.get("rrs_chart", [])),
+                    ],
+                )
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
 
 
 def get_etf_snapshot() -> dict | None:
