@@ -240,12 +240,7 @@ export default function ETFDashboard() {
 
   const groups = snapshot?.groups ?? {};
   const availableGroups = GROUP_ORDER.filter(g => groups[g]?.length > 0 || g === 'Custom');
-
-  useEffect(() => {
-    if (!availableGroups.includes(activeGroup)) {
-      setActiveGroup(availableGroups[0] ?? 'Indices');
-    }
-  }, [snapshot]);
+  const effectiveGroup = availableGroups.includes(activeGroup) ? activeGroup : (availableGroups[0] ?? 'Indices');
 
   const handleAddSymbol = async () => {
     const sym = newSymbol.trim().toUpperCase();
@@ -326,7 +321,7 @@ export default function ETFDashboard() {
             key={g}
             onClick={() => setActiveGroup(g)}
             className={`px-3 py-1.5 text-sm rounded-t font-medium whitespace-nowrap transition-colors border-b-2 ${
-              activeGroup === g
+              effectiveGroup === g
                 ? 'text-foreground border-primary'
                 : 'text-muted-foreground border-transparent hover:text-foreground'
             }`}
@@ -355,14 +350,14 @@ export default function ETFDashboard() {
           </div>
         )}
 
-        {snapshot && activeGroup !== 'Custom' && groups[activeGroup] && (
+        {snapshot && effectiveGroup !== 'Custom' && groups[effectiveGroup] && (
           <ETFTable
-            rows={groups[activeGroup]}
-            ranges={snapshot.column_ranges?.[activeGroup]}
+            rows={groups[effectiveGroup]}
+            ranges={snapshot.column_ranges?.[effectiveGroup]}
           />
         )}
 
-        {activeGroup === 'Custom' && (
+        {effectiveGroup === 'Custom' && (
           <div>
             {groups['Custom']?.length > 0 && (
               <ETFTable
