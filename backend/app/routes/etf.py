@@ -19,8 +19,11 @@ logger = logging.getLogger(__name__)
 
 @router.get("/snapshot")
 async def snapshot(current_user: User = Depends(get_current_user)):
-    """Return cached ETF snapshot or null if not yet built."""
-    return get_etf_snapshot()
+    """Return cached ETF snapshot or fallback if not yet built."""
+    snapshot = get_etf_snapshot()
+    if snapshot is None:
+        return {"groups": {}, "built_at": None}
+    return snapshot
 
 
 @router.post("/refresh")
@@ -74,7 +77,7 @@ async def add_custom(
     sym = symbol.upper()
     existing = db.query(EtfCustomSymbol).filter_by(symbol=sym).first()
     if existing:
-        return {"symbol": sym, "status": "already exists"}
+        raise HTTPException(status_code=409, detail="Symbol already exists")
     db.add(EtfCustomSymbol(symbol=sym))
     db.commit()
     return {"symbol": sym, "status": "added"}

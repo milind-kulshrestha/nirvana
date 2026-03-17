@@ -52,7 +52,7 @@ def test_snapshot_empty(client):
     with patch("app.routes.etf.get_etf_snapshot", return_value=None):
         resp = client.get("/api/etf/snapshot")
     assert resp.status_code == 200
-    assert resp.json() is None
+    assert resp.json() == {"groups": {}, "built_at": None}
 
 
 def test_snapshot_returns_data(client):
@@ -102,3 +102,24 @@ def test_holdings_fetches_live_on_miss(client):
         resp = client.get("/api/etf/holdings/UNKNOWN")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_custom_add_duplicate_returns_409(client):
+    client.post("/api/etf/custom/DUPL")
+    resp = client.post("/api/etf/custom/DUPL")
+    assert resp.status_code == 409
+
+
+def test_custom_delete_not_found(client):
+    resp = client.delete("/api/etf/custom/DOESNOTEXIST")
+    assert resp.status_code == 404
+
+
+def test_refresh_sse_responds(client):
+    async def fake_stream(custom_symbols):
+        yield {"type": "complete", "built_at": "2026-01-01T00:00:00"}
+
+    with patch("app.routes.etf.stream_etf_refresh", fake_stream):
+        resp = client.post("/api/etf/refresh")
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
