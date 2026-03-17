@@ -37,29 +37,36 @@ const useEtfStore = create((set, get) => ({
   },
 
   addCustomSymbol: async (symbol) => {
-    const res = await fetch(`${API_BASE}/api/etf/custom/${symbol.toUpperCase()}`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (res.ok) {
-      await get().fetchCustomSymbols();
+    try {
+      const res = await fetch(`${API_BASE}/api/etf/custom/${symbol.toUpperCase()}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) await get().fetchCustomSymbols();
+      return res.ok;
+    } catch (err) {
+      console.error('ETF add custom symbol error:', err);
+      return false;
     }
-    return res.ok;
   },
 
   removeCustomSymbol: async (symbol) => {
-    const res = await fetch(`${API_BASE}/api/etf/custom/${symbol.toUpperCase()}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    if (res.ok) {
-      await get().fetchCustomSymbols();
+    try {
+      const res = await fetch(`${API_BASE}/api/etf/custom/${symbol.toUpperCase()}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (res.ok) await get().fetchCustomSymbols();
+      return res.ok;
+    } catch (err) {
+      console.error('ETF remove custom symbol error:', err);
+      return false;
     }
-    return res.ok;
   },
 
   startRefresh: async () => {
     set({ status: 'refreshing', progress: { done: 0, total: 0, current: '' } });
+    let reader = null;
     try {
       const res = await fetch(`${API_BASE}/api/etf/refresh`, {
         method: 'POST',
@@ -67,16 +74,21 @@ const useEtfStore = create((set, get) => ({
       });
       if (!res.ok) throw new Error('Refresh failed');
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
+      reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value);
-        const lines = text.split('\n').filter((l) => l.startsWith('data: '));
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // Keep the last (potentially incomplete) line in the buffer
+        buffer = lines.pop() ?? '';
+
         for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
           try {
             const event = JSON.parse(line.slice(6));
             if (event.type === 'progress' || event.type === 'error') {
@@ -85,13 +97,30 @@ const useEtfStore = create((set, get) => ({
               await get().fetchSnapshot();
             }
           } catch {
-            // ignore parse errors
+            // ignore malformed events
           }
         }
+      }
+
+      // Flush any remaining bytes in the decoder
+      const remaining = decoder.decode();
+      if (remaining.startsWith('data: ')) {
+        try {
+          const event = JSON.parse(remaining.slice(6));
+          if (event.type === 'complete') await get().fetchSnapshot();
+        } catch { /* ignore */ }
       }
     } catch (err) {
       console.error('ETF refresh error:', err);
       set({ status: 'error' });
+    } finally {
+      if (reader) {
+        try { reader.releaseLock(); } catch { /* ignore */ }
+      }
+      // Ensure status is never stuck in 'refreshing'
+      if (useEtfStore.getState().status === 'refreshing') {
+        set({ status: 'idle' });
+      }
     }
   },
 }));
