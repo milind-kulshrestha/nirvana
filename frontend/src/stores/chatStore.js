@@ -8,6 +8,7 @@ const useChatStore = create((set, get) => ({
   messages: [],
   isStreaming: false,
   pendingActions: [],
+  tokenUsage: null,
   error: null,
   sidebarOpen: true,
   selectedModel: localStorage.getItem('nirvana_selected_model') || 'anthropic/claude-sonnet-4-6',
@@ -221,6 +222,9 @@ const useChatStore = create((set, get) => ({
               case 'done':
                 if (event.conversation_id) {
                   set({ currentConversationId: event.conversation_id });
+                }
+                if (event.usage) {
+                  set({ tokenUsage: event.usage });
                 }
                 break;
 

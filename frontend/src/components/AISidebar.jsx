@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import useChatStore from '../stores/chatStore';
 import { API_BASE } from '../config';
 
@@ -22,11 +23,24 @@ export default function AISidebar() {
     clearError,
     selectedModel,
     setSelectedModel,
+    tokenUsage,
   } = useChatStore();
 
   const [input, setInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [availableModels, setAvailableModels] = useState([]);
+
+  // Context window sizes by model ID (tokens)
+  const CONTEXT_WINDOWS = {
+    'anthropic/claude-sonnet-4-6': 200000,
+    'anthropic/claude-opus-4-6': 200000,
+    'anthropic/claude-haiku-4-5-20251001': 200000,
+    'gpt-4o': 128000,
+    'gpt-4o-mini': 128000,
+    'gemini/gemini-2.0-flash': 1048576,
+    'gemini/gemini-1.5-pro': 2097152,
+    'groq/llama-3.3-70b-versatile': 128000,
+  };
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -205,7 +219,15 @@ export default function AISidebar() {
               )}
 
               {/* Message content */}
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              <ReactMarkdown
+                className={`prose prose-sm max-w-none ${
+                  msg.role === 'user'
+                    ? 'prose-invert'
+                    : 'prose-gray'
+                }`}
+              >
+                {msg.content}
+              </ReactMarkdown>
 
               {/* Streaming cursor */}
               {msg.role === 'assistant' && isStreaming && i === messages.length - 1 && (
@@ -249,6 +271,39 @@ export default function AISidebar() {
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Context Window Tracker */}
+      {tokenUsage && (() => {
+        const maxTokens = CONTEXT_WINDOWS[selectedModel] || 200000;
+        const usedTokens = (tokenUsage.input_tokens || 0) + (tokenUsage.output_tokens || 0);
+        const pct = Math.min((usedTokens / maxTokens) * 100, 100);
+        const r = 10;
+        const circ = 2 * Math.PI * r;
+        const offset = circ - (pct / 100) * circ;
+        const color = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#6366f1';
+        const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+        return (
+          <div className="flex items-center gap-2 px-3 py-1.5 border-t border-gray-100 bg-gray-50">
+            <svg width="24" height="24" viewBox="0 0 24 24" className="flex-shrink-0">
+              <circle cx="12" cy="12" r={r} fill="none" stroke="#e5e7eb" strokeWidth="3" />
+              <circle
+                cx="12" cy="12" r={r}
+                fill="none" stroke={color} strokeWidth="3"
+                strokeDasharray={circ} strokeDashoffset={offset}
+                strokeLinecap="round"
+                transform="rotate(-90 12 12)"
+              />
+              <text x="12" y="12.5" textAnchor="middle" fontSize="6" fontWeight="600" fill={color}>
+                {Math.round(pct)}%
+              </text>
+            </svg>
+            <div className="flex flex-col text-[10px] leading-tight text-gray-500">
+              <span>{fmt(usedTokens)} / {fmt(maxTokens)} tokens</span>
+              <span className="text-gray-400">in: {fmt(tokenUsage.input_tokens || 0)} · out: {fmt(tokenUsage.output_tokens || 0)}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Input */}
       <form onSubmit={handleSend} className="border-t border-gray-200 p-3">
