@@ -2,11 +2,20 @@
 
 **Last Updated:** 2026-03-16
 
-## Current Status: Multi-LLM Support Complete
+## Current Status: ETF Dashboard Complete
 
 Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
 
 ### Latest Accomplishments (2026-03-16)
+- ✅ **ETF Dashboard** — New `/etf` page with ~180 preset ETFs across 6 categories + extensible Custom group
+  - `etf_engine.py`: yfinance fetch (asyncio.to_thread), ABC rating (EMA10>EMA20>SMA50), ATR%, ATRx, VARS (volatility-adjusted RS percentile), RRS sparkline data
+  - `market_cache.py`: `etf_snapshot` + `etf_holdings` DuckDB tables; atomic snapshot replace (BEGIN/COMMIT/ROLLBACK); 24h holdings TTL
+  - `etf_custom_symbol.py`: SQLAlchemy model for user's custom ETF list
+  - `routes/etf.py`: GET /snapshot, POST /refresh (SSE with error handling + proxy headers), GET /holdings/{symbol}, GET/POST/DELETE /custom
+  - `etfStore.js`: Zustand store with SSE stream reader, buffer accumulation for partial chunks, progress tracking
+  - `ETFDashboard.jsx`: AbcBadge, BarCell heatmap, RsSparkline SVG, HoldingsPopover (click-outside, aria-labels), sortable ETFTable, category tabs, Custom symbol management
+
+### Previous Accomplishments (2026-03-16)
 - ✅ **Multi-LLM Support** — LiteLLM replaces hardcoded Anthropic SDK; users can select any of 8 models
   - `models.py`: registry of 8 models across Anthropic, OpenAI, Google, Groq
   - `tool_adapter.py`: Anthropic→OpenAI tool/message format converter
@@ -84,6 +93,13 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
   - ✅ Upcoming calendar: earnings and dividends
   - ✅ Watchlist-filtered and market-wide views
   - ✅ Discover page with integrated calendar sidebar
+- ✅ **ETF Dashboard**
+  - ✅ ~180 preset ETFs across 6 categories (Indices, S&P Style, Sectors, Industries, Countries)
+  - ✅ Technical indicators: ABC Rating, ATR%, ATRx, VARS percentile rank
+  - ✅ RS sparkline charts (inline SVG, 20 bars)
+  - ✅ Holdings popover (top-10, lazy-loaded, 24h cache)
+  - ✅ Manual refresh with SSE progress stream
+  - ✅ User-extensible Custom ETF group
 - ✅ **AI Agent Integration**
   - ✅ Conversational AI assistant (multi-provider via LiteLLM)
   - ✅ **Multi-LLM model selector** — 8 models across Anthropic, OpenAI, Google, Groq
@@ -137,6 +153,15 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
 ## Milestone History
 
 ### Completed Milestones
+
+#### Milestone 10: ETF Dashboard (Mar 16, 2026) ✅
+- New `/etf` page: preset screener for ~180 ETFs across 6 categories + Custom group
+- `etf_engine.py`: yfinance fetch (asyncio.to_thread), ABC/ATR/VARS computation, RRS sparkline data (20 floats, no matplotlib)
+- `market_cache.py`: atomic DuckDB snapshot replace (BEGIN/COMMIT/ROLLBACK); 24h holdings TTL cache
+- `routes/etf.py`: 6 endpoints; SSE refresh with error handling + `X-Accel-Buffering` proxy headers (matching chat.py)
+- `ETFDashboard.jsx`: AbcBadge, BarCell heatmap, RsSparkline SVG, HoldingsPopover (click-outside, aria-labels), sortable ETFTable
+- `etfStore.js`: SSE stream with buffer accumulation for partial chunks; reader cleanup in finally block
+- `EtfCustomSymbol` SQLAlchemy model; nav links added to WatchlistsNew + Discover
 
 #### Milestone 9: Multi-LLM Support via LiteLLM (Mar 16, 2026) ✅
 - Replaced Anthropic SDK with LiteLLM — supports Anthropic, OpenAI, Google, Groq
