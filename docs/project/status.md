@@ -2,11 +2,21 @@
 
 **Last Updated:** 2026-03-16
 
-## Current Status: ETF Dashboard Complete
+## Current Status: FMP MCP Integration + Chat Enhancements Complete
 
 Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
 
-### Latest Accomplishments (2026-03-16)
+### Latest Accomplishments (2026-03-19)
+- ✅ **FMP MCP Integration** — Agent now optionally loads Financial Modeling Prep tools via MCP server
+  - `fmp_mcp.py`: `FMPMCPManager` spawns `npx financial-modeling-prep-mcp-server`, maintains SSE connection
+  - Tools injected into agent at startup; gracefully skipped if Node.js/API key unavailable
+  - Default tool sets: analyst, news, statements, insider-trades, earnings, dcf
+- ✅ **Chat Enhancements** — Markdown rendering + context window tracker in AISidebar
+  - `react-markdown` replaces plain `whitespace-pre-wrap` text rendering
+  - Circular SVG token tracker: used/max tokens, color-coded (indigo→amber→red), per-model context sizes
+  - `tokenUsage` state in chatStore populated from `usage` field in SSE `done` events
+
+### Previous Accomplishments (2026-03-16)
 - ✅ **ETF Dashboard** — New `/etf` page with ~180 preset ETFs across 6 categories + extensible Custom group
   - `etf_engine.py`: yfinance fetch (asyncio.to_thread), ABC rating (EMA10>EMA20>SMA50), ATR%, ATRx, VARS (volatility-adjusted RS percentile), RRS sparkline data
   - `market_cache.py`: `etf_snapshot` + `etf_holdings` DuckDB tables; atomic snapshot replace (BEGIN/COMMIT/ROLLBACK); 24h holdings TTL
@@ -117,6 +127,9 @@ Nirvana has expanded beyond basic watchlist tracking with rich market data, disc
   - ✅ Context overflow recovery
   - ✅ `heartbeat` tool (HEARTBEAT.md monitoring checklist)
   - ✅ `skill` tool with deduplication
+  - ✅ **FMP MCP server** — optional Node.js subprocess; injects analyst/news/DCF/filings tools
+  - ✅ **Markdown rendering** in chat (react-markdown + tailwind typography)
+  - ✅ **Context window tracker** — circular SVG token gauge per model
 
 ### Technical Stack
 - **Backend**: FastAPI + SQLAlchemy + SQLite/PostgreSQL

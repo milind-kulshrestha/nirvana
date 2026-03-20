@@ -6,6 +6,80 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-19] - FMP MCP Integration + Chat Enhancements
+
+### Added
+- **`backend/app/lib/fmp_mcp.py`** (new) — FMP MCP server lifecycle manager
+  - `FMPMCPManager` class: spawns `financial-modeling-prep-mcp-server` via `npx` on app startup
+  - Maintains persistent SSE connection via `mcp.client.sse.sse_client`
+  - `get_tools()` — returns FMP tools in Anthropic format (cached after first call)
+  - `call_tool(name, args)` — executes FMP MCP tool, returns string result
+  - `is_fmp_tool(name)` — routes dispatch in `tools.py`
+  - Graceful degradation: if Node.js unavailable or API key missing, agent continues with built-in tools only
+  - Default tool sets: `analyst, news, statements, insider-trades, earnings, dcf`
+- **`react-markdown@10.1`** + **`@tailwindcss/typography@0.5`** dependencies
+- **Markdown rendering** in AISidebar chat messages — replaces `whitespace-pre-wrap` plain text
+- **Context window tracker** in AISidebar — circular SVG progress indicator with token counts
+  - Shows used/max tokens; color-coded: indigo → amber → red at 50% / 80%
+  - Breakdown: input tokens + output tokens
+  - Per-model context windows: 200k (Claude), 128k (GPT-4o, Groq), 1M / 2M (Gemini)
+- **`tokenUsage` state** in `chatStore.js` — populated from `usage` field in SSE `done` events
+
+### Changed
+- **`main.py`** — `start_fmp_mcp()` / `stop_fmp_mcp()` startup/shutdown lifecycle hooks
+- **`harness.py`** — `fmp_tools = await fmp_mcp.get_tools()` merged with `TOOL_DEFINITIONS` on each agent run
+- **`tools.py`** — routes `execute_tool()` to `fmp_mcp.call_tool()` when `fmp_mcp.is_fmp_tool(name)` is true
+- **`tailwind.config.js`** — added `@tailwindcss/typography` plugin
+
+## [2026-03-16] - ETF Dashboard
+
+### Added
+- **`backend/app/lib/etf_engine.py`** (new) — ETF data engine
+  - `STOCK_GROUPS` — 6 preset categories: Indices, S&P Style, Sel Sectors, EW Sectors, Industries, Countries (~180 ETFs)
+  - `LEVERAGED_ETFS` — 44 symbols mapped to long/short ETF lists
+  - `calculate_abc_rating()` — EMA10 > EMA20 > SMA50 trend scoring
+  - `calculate_atr()` / `calculate_rrs()` — volatility + relative strength vs SPY
+  - `get_rrs_chart_data(n=20)` — returns 20-point float list; `np.isfinite()` guard for NaN/inf
+  - `fetch_etf_row(symbol, group)` — synchronous yfinance fetch wrapped for asyncio
+  - `fetch_etf_holdings_sync(symbol)` — top-10 holdings; `pd.isna(idx)` index guard
+  - `stream_etf_refresh(custom_symbols)` — async generator yielding `progress/error/complete` SSE events
+- **`backend/app/lib/market_cache.py`** — two new DuckDB tables:
+  - `etf_snapshot` — wiped + rewritten atomically on each refresh (BEGIN/COMMIT/ROLLBACK)
+  - `etf_holdings` — lazy, per-symbol, 24h TTL
+  - `save_etf_snapshot()`, `get_etf_snapshot()`, `save_etf_holdings()`, `get_etf_holdings()`
+- **`backend/app/models/etf_custom_symbol.py`** (new) — `EtfCustomSymbol` SQLAlchemy model (`symbol` PK, `added_at`)
+- **`backend/app/routes/etf.py`** (new) — 6 endpoints:
+  - `GET /api/etf/snapshot` — cached snapshot; fallback `{"groups": {}, "built_at": null}`
+  - `POST /api/etf/refresh` — SSE stream with error handling + `X-Accel-Buffering: no` header
+  - `GET /api/etf/holdings/{symbol}` — cache-first, lazy yfinance fetch on miss
+  - `GET/POST/DELETE /api/etf/custom/{symbol}` — custom ETF CRUD (POST returns 409 on duplicate)
+- **`frontend/src/stores/etfStore.js`** (new) — Zustand store
+  - `fetchSnapshot()`, `fetchCustomSymbols()`, `startRefresh()`, `addCustomSymbol()`, `removeCustomSymbol()`
+  - SSE reader with `TextDecoder({stream: true})` + buffer accumulation for partial chunks
+  - `finally` block releases reader lock; resets stuck `refreshing` status
+- **`frontend/src/pages/ETFDashboard.jsx`** (new) — full page component
+  - `AbcBadge` — colored dot (blue=A, green=B, amber=C)
+  - `BarCell` — heatmap cell with green/red background bar
+  - `RsSparkline` — 20-bar inline SVG (guard: `data.length < 2`)
+  - `HoldingsPopover` — lazy-loaded, click-outside to close, weight bars, aria-label/expanded
+  - `ETFTable` — sortable 10-column table with leveraged ETF chips
+  - Category tabs (GROUP_ORDER), progress bar, Custom symbol input, empty state, loading skeleton
+  - Derived `effectiveGroup` for stale-tab guard (avoids setState-in-effect)
+- **`yfinance>=0.2.40`** + **`scipy>=1.11.0`** added to `requirements.txt`
+
+### Changed
+- **`main.py`** — registers `etf_routes.router` at `/api/etf`
+- **`models/__init__.py`** + **`database.py`** — `EtfCustomSymbol` added to model registry
+- **`frontend/src/App.jsx`** — `/etf` protected route added
+- **`frontend/src/pages/WatchlistsNew.jsx`** + **`Discover.jsx`** — ETF nav links added (BarChart2 icon)
+
+### Tests Added
+- `backend/tests/test_etf_cache.py` — 4 DuckDB cache function tests
+- `backend/tests/test_etf_model.py` — 2 SQLAlchemy model tests
+- `backend/tests/test_etf_engine.py` — 9 computation + fetch function tests
+- `backend/tests/test_etf_routes.py` — 9 route tests (snapshot fallback, SSE, holdings, custom CRUD + 409/404)
+- `frontend/src/stores/etfStore.test.js` — 3 Zustand store tests
+
 ## [2026-03-16] - Multi-LLM Support via LiteLLM
 
 ### Added

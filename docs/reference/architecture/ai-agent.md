@@ -1,6 +1,6 @@
 # AI Agent Architecture
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-19
 
 The AI agent system provides conversational intelligence for stock analysis, portfolio management, and investment research. It supports 8 LLM models across 4 providers via LiteLLM, with a model selector in the chat sidebar.
 
@@ -20,8 +20,9 @@ The AI agent is a full-stack feature that enables users to:
 │                         Frontend                             │
 ├─────────────────────────────────────────────────────────────┤
 │  AISidebar                                                   │
-│  ├─ Chat Interface (messages, streaming)                    │
+│  ├─ Chat Interface (react-markdown rendered messages)       │
 │  ├─ Model Selector Dropdown (fetches /api/settings/models)  │
+│  ├─ Context Window Tracker (circular SVG, token counts)     │
 │  ├─ Conversation History                                    │
 │  ├─ Tool Call Indicators                                    │
 │  └─ Pending Action Approvals                                │
@@ -164,6 +165,11 @@ The AI agent is a full-stack feature that enables users to:
 │  ├─ Google Gemini (2.0 Flash, 1.5 Pro)                     │
 │  └─ Groq (Llama 3.3 70B)                                   │
 │                                                              │
+│  FMP MCP Server (optional, Node.js subprocess)              │
+│  ├─ npx financial-modeling-prep-mcp-server                  │
+│  ├─ SSE connection via mcp.client.sse                       │
+│  └─ Tool sets: analyst, news, statements, earnings, dcf     │
+│                                                              │
 │  OpenBB SDK                                                  │
 │  └─ Market data (quotes, history) via FMP provider          │
 └─────────────────────────────────────────────────────────────┘
@@ -175,7 +181,8 @@ The AI agent is a full-stack feature that enables users to:
 
 #### AISidebar (`frontend/src/components/ai/AISidebar.jsx`)
 - Fixed right panel (400px width)
-- Chat message display with role-based styling
+- Chat message display with `react-markdown` rendering (prose styles via `@tailwindcss/typography`)
+- Context window tracker: circular SVG progress + token breakdown (input/output), color-coded by fill %
 - Conversation history dropdown
 - Tool call indicators (loading spinners)
 - Pending action approval UI
@@ -201,6 +208,7 @@ The AI agent is a full-stack feature that enables users to:
 #### chatStore (`frontend/src/stores/chatStore.js`)
 - Manages chat state (messages, conversations, loading)
 - `selectedModel` — persisted to `localStorage` under `nirvana_selected_model`; sent in every request
+- `tokenUsage` — updated from `usage` field in SSE `done` events; drives context window tracker
 - `setSelectedModel(model)` — updates state + localStorage
 - SSE streaming with fetch + ReadableStream
 - Handles tool calls and pending actions
@@ -273,10 +281,20 @@ DELETE /api/skills/:id                   # Delete user skill
 - `estimate_tokens(system, query)` — rough estimate via `len / 3.5`
 
 #### ToolExecutor (`backend/app/lib/agent/tools.py`)
-- 13 tool definitions + FMP MCP tools (dynamic)
+- 13 built-in tool definitions + FMP MCP tools injected dynamically at runtime
 - Native handlers: `get_quote`, `get_watchlists`, `get_watchlist_items`, `get_price_history`, `get_financial_ratios`, `search_symbol`, `propose_action`, `get_user_memory`, `create_monitor`, `export_report`, `query_market_data`
 - `heartbeat(action, content)` — reads/writes `~/.nirvana/HEARTBEAT.md`
 - `skill(skill)` — calls `skill_manager.load_skill_content(name)`, returns SKILL.md content
+- FMP dispatch: `if fmp_mcp.is_fmp_tool(name): return await fmp_mcp.call_tool(name, args)`
+
+#### FMPMCPManager (`backend/app/lib/fmp_mcp.py`)
+- Spawns `npx financial-modeling-prep-mcp-server` subprocess on app startup
+- Maintains persistent SSE connection via `mcp.client.sse.sse_client` in a background asyncio task
+- `get_tools()` — lists tools from MCP server, converts to Anthropic format, caches result
+- `call_tool(name, args)` — executes tool via `ClientSession.call_tool()`, returns string
+- `is_fmp_tool(name)` — O(1) lookup via `_fmp_tool_names` set
+- Graceful degradation: returns `False`/empty on missing Node.js, missing API key, or connection timeout
+- Default tool sets: `analyst, news, statements, insider-trades, earnings, dcf`
 
 #### SkillManager (`backend/app/lib/agent/skills.py`)
 - `get_skills_for_prompt()` — returns `[{name, description}]` for system prompt injection; user skills override system on name collision
