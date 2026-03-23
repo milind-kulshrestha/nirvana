@@ -643,3 +643,97 @@ def get_calendar_events(event_type: str = "earnings", days_ahead: int = 30) -> l
     except Exception as e:
         logger.warning("Failed to fetch calendar events (%s): %s", event_type, e)
         return []
+
+
+def get_insider_trading(symbol: str) -> list[dict]:
+    """
+    Fetch insider trades for symbol via OpenBB (FMP provider).
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:insider_trades).
+    On miss, fetches from OpenBB and caches the result.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        List of dicts with date, insider_name, insider_title,
+        transaction_type ('buy'/'sell'), shares, value.
+        Sorted newest-first, limited to 20 most recent.
+    """
+    cache_key = f"{symbol.upper()}:insider_trades"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for insider trades %s", symbol)
+
+    # --- cache miss: fetch from OpenBB ---
+    try:
+        data = obb.equity.ownership.insider_trading(symbol=symbol, provider="fmp")
+
+        if not data or not data.results:
+            # Cache empty result to avoid re-fetching
+            try:
+                from app.lib.market_cache import cache_fundamentals
+                cache_fundamentals(cache_key, [])
+            except Exception:
+                pass
+            return []
+
+        trades = []
+        for row in data.results:
+            # Determine buy vs sell from transaction_type or acquisition_or_disposition
+            txn_type_raw = getattr(row, "transaction_type", "") or ""
+            acq_disp = getattr(row, "acquisition_or_disposition", "") or ""
+
+            if "purchase" in txn_type_raw.lower() or txn_type_raw.startswith("P") or acq_disp == "A":
+                txn_type = "buy"
+            elif "sale" in txn_type_raw.lower() or txn_type_raw.startswith("S") or acq_disp == "D":
+                txn_type = "sell"
+            else:
+                txn_type = txn_type_raw.lower() or "other"
+
+            # Use transaction_date if available, fall back to filing_date
+            date_val = getattr(row, "transaction_date", None) or getattr(row, "filing_date", None)
+            date_str = _format_date(date_val) if date_val else None
+
+            shares_val = getattr(row, "securities_transacted", None)
+            price_val = getattr(row, "price", None)
+            value_val = getattr(row, "value", None)
+
+            # Compute value if not provided but shares and price are
+            if value_val is None and shares_val is not None and price_val is not None:
+                try:
+                    value_val = float(shares_val) * float(price_val)
+                except (TypeError, ValueError):
+                    pass
+
+            trades.append({
+                "date": date_str,
+                "insider_name": getattr(row, "owner_name", None) or getattr(row, "reporting_name", None),
+                "insider_title": getattr(row, "owner_title", None) or getattr(row, "reporting_title", None),
+                "transaction_type": txn_type,
+                "shares": int(float(shares_val)) if shares_val is not None else None,
+                "value": float(value_val) if value_val is not None else None,
+            })
+
+        # Sort newest-first, limit to 20
+        trades.sort(key=lambda t: t["date"] or "", reverse=True)
+        trades = trades[:20]
+
+        # Cache with 24h TTL
+        try:
+            from app.lib.market_cache import cache_fundamentals
+            cache_fundamentals(cache_key, trades)
+        except Exception:
+            logger.debug("Cache write failed for insider trades %s", symbol)
+
+        return trades
+
+    except Exception as e:
+        logger.warning("Failed to fetch insider trades for %s: %s", symbol, e)
+        return []
