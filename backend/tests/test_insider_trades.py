@@ -165,3 +165,74 @@ class TestGetInsiderTrading:
             result = get_insider_trading("AAPL")
 
         assert len(result) == 20
+
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+
+@pytest.fixture
+def client(mock_cache):
+    """Test client with minimal FastAPI app containing only securities router."""
+    from app.routes.securities import router
+    test_app = FastAPI()
+    test_app.include_router(router, prefix="/api/securities")
+    return TestClient(test_app)
+
+
+class TestInsiderTradesEndpoint:
+    def test_returns_trades_with_summary(self, client):
+        mock_trades = [
+            {
+                "filing_date": "2026-03-15",
+                "transaction_date": "2026-03-14",
+                "owner_name": "Jane Doe",
+                "owner_title": "CEO",
+                "transaction_type": "P-Purchase",
+                "acquisition_or_disposition": "A",
+                "securities_transacted": 5000.0,
+                "price": 150.0,
+                "value": 750000.0,
+            },
+            {
+                "filing_date": "2026-02-10",
+                "transaction_date": "2026-02-09",
+                "owner_name": "John Smith",
+                "owner_title": "CFO",
+                "transaction_type": "S-Sale",
+                "acquisition_or_disposition": "D",
+                "securities_transacted": 10000.0,
+                "price": 148.0,
+                "value": 1480000.0,
+            },
+        ]
+        mock_data = _make_openbb_result(mock_trades)
+
+        with patch("app.lib.openbb.obb") as mock_obb:
+            mock_obb.equity.ownership.insider_trading.return_value = mock_data
+            response = client.get("/api/securities/AAPL/insider-trades")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert "summary" in body
+        assert "trades" in body
+        assert body["summary"]["total_buys"] == 1
+        assert body["summary"]["total_sells"] == 1
+        assert body["summary"]["buy_value"] == 750000.0
+        assert body["summary"]["sell_value"] == 1480000.0
+        assert body["summary"]["net_value"] == 750000.0 - 1480000.0
+        assert len(body["trades"]) == 2
+
+    def test_empty_insider_trades(self, client):
+        mock_resp = MagicMock()
+        mock_resp.results = []
+
+        with patch("app.lib.openbb.obb") as mock_obb:
+            mock_obb.equity.ownership.insider_trading.return_value = mock_resp
+            response = client.get("/api/securities/AAPL/insider-trades")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["summary"]["total_buys"] == 0
+        assert body["summary"]["total_sells"] == 0
+        assert body["trades"] == []

@@ -1,4 +1,5 @@
 """Securities/market data routes."""
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -6,6 +7,7 @@ import logging
 
 from app.lib.openbb import (
     get_quote, get_ma_200, get_history, get_ohlcv, get_performance, get_estimates,
+    get_insider_trading,
     SymbolNotFoundError, OpenBBTimeoutError,
 )
 
@@ -168,3 +170,38 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
     except Exception as e:
         logger.error(f"Unexpected error fetching {symbol}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/{symbol}/insider-trades")
+async def get_insider_trades(symbol: str):
+    """
+    Get insider trading data for a symbol.
+
+    Returns:
+        summary: Aggregated buy/sell stats for last 3 months
+        trades: Up to 20 most recent insider trades
+    """
+    symbol = symbol.upper()
+    trades = get_insider_trading(symbol)
+
+    # Compute summary for last 3 months
+    cutoff = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
+    recent = [t for t in trades if t.get("date") and t["date"] >= cutoff]
+
+    buys = [t for t in recent if t["transaction_type"] == "buy"]
+    sells = [t for t in recent if t["transaction_type"] == "sell"]
+
+    buy_value = sum(t["value"] for t in buys if t["value"] is not None)
+    sell_value = sum(t["value"] for t in sells if t["value"] is not None)
+
+    return {
+        "summary": {
+            "total_buys": len(buys),
+            "total_sells": len(sells),
+            "buy_value": buy_value,
+            "sell_value": sell_value,
+            "net_value": buy_value - sell_value,
+            "period": "3m",
+        },
+        "trades": trades,
+    }
