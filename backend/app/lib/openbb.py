@@ -1,6 +1,9 @@
 """OpenBB SDK integration for market data with DuckDB cache layer."""
 import logging
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+
+import httpx
 from openbb import obb
 
 logger = logging.getLogger(__name__)
@@ -647,10 +650,10 @@ def get_calendar_events(event_type: str = "earnings", days_ahead: int = 30) -> l
 
 def get_insider_trading(symbol: str) -> list[dict]:
     """
-    Fetch insider trades for symbol via OpenBB (FMP provider).
+    Fetch insider trades for symbol from SEC EDGAR Form 4 filings.
 
     Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:insider_trades).
-    On miss, fetches from OpenBB and caches the result.
+    On miss, fetches from SEC EDGAR and caches the result.
 
     Args:
         symbol: Stock ticker symbol
@@ -671,59 +674,9 @@ def get_insider_trading(symbol: str) -> list[dict]:
     except Exception:
         logger.debug("Cache read failed for insider trades %s", symbol)
 
-    # --- cache miss: fetch from OpenBB ---
+    # --- cache miss: fetch from SEC EDGAR ---
     try:
-        data = obb.equity.ownership.insider_trading(symbol=symbol, provider="fmp")
-
-        if not data or not data.results:
-            # Cache empty result to avoid re-fetching
-            try:
-                from app.lib.market_cache import cache_fundamentals
-                cache_fundamentals(cache_key, [])
-            except Exception:
-                pass
-            return []
-
-        trades = []
-        for row in data.results:
-            # Determine buy vs sell from transaction_type or acquisition_or_disposition
-            txn_type_raw = getattr(row, "transaction_type", "") or ""
-            acq_disp = getattr(row, "acquisition_or_disposition", "") or ""
-
-            if "purchase" in txn_type_raw.lower() or txn_type_raw.startswith("P") or acq_disp == "A":
-                txn_type = "buy"
-            elif "sale" in txn_type_raw.lower() or txn_type_raw.startswith("S") or acq_disp == "D":
-                txn_type = "sell"
-            else:
-                txn_type = txn_type_raw.lower() or "other"
-
-            # Use transaction_date if available, fall back to filing_date
-            date_val = getattr(row, "transaction_date", None) or getattr(row, "filing_date", None)
-            date_str = _format_date(date_val) if date_val else None
-
-            shares_val = getattr(row, "securities_transacted", None)
-            price_val = getattr(row, "price", None)
-            value_val = getattr(row, "value", None)
-
-            # Compute value if not provided but shares and price are
-            if value_val is None and shares_val is not None and price_val is not None:
-                try:
-                    value_val = float(shares_val) * float(price_val)
-                except (TypeError, ValueError):
-                    pass
-
-            trades.append({
-                "date": date_str,
-                "insider_name": getattr(row, "owner_name", None) or getattr(row, "reporting_name", None),
-                "insider_title": getattr(row, "owner_title", None) or getattr(row, "reporting_title", None),
-                "transaction_type": txn_type,
-                "shares": int(float(shares_val)) if shares_val is not None else None,
-                "value": float(value_val) if value_val is not None else None,
-            })
-
-        # Sort newest-first, limit to 20
-        trades.sort(key=lambda t: t["date"] or "", reverse=True)
-        trades = trades[:20]
+        trades = _fetch_insider_trades_from_edgar(symbol.upper())
 
         # Cache with 24h TTL
         try:
@@ -737,3 +690,167 @@ def get_insider_trading(symbol: str) -> list[dict]:
     except Exception as e:
         logger.warning("Failed to fetch insider trades for %s: %s", symbol, e)
         return []
+
+
+# ---------------------------------------------------------------------------
+# SEC EDGAR helpers
+# ---------------------------------------------------------------------------
+
+_SEC_HEADERS = {"User-Agent": "Nirvana/1.0 (contact@nirvana.app)"}
+_CIK_CACHE: dict[str, str] = {}  # ticker -> zero-padded CIK
+
+
+def _get_cik(symbol: str) -> str | None:
+    """Look up 10-digit CIK for a ticker from SEC company_tickers.json."""
+    if symbol in _CIK_CACHE:
+        return _CIK_CACHE[symbol]
+
+    try:
+        resp = httpx.get(
+            "https://www.sec.gov/files/company_tickers.json",
+            headers=_SEC_HEADERS,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        for entry in resp.json().values():
+            ticker = entry.get("ticker", "").upper()
+            cik = str(entry.get("cik_str", ""))
+            _CIK_CACHE[ticker] = cik.zfill(10)
+
+        return _CIK_CACHE.get(symbol)
+    except Exception as e:
+        logger.warning("SEC CIK lookup failed: %s", e)
+        return None
+
+
+def _fetch_insider_trades_from_edgar(symbol: str) -> list[dict]:
+    """Fetch and parse Form 4 filings from SEC EDGAR for a symbol."""
+    cik = _get_cik(symbol)
+    if not cik:
+        return []
+
+    # Get recent filings index
+    try:
+        resp = httpx.get(
+            f"https://data.sec.gov/submissions/CIK{cik}.json",
+            headers=_SEC_HEADERS,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        logger.warning("SEC EDGAR submissions fetch failed for %s: %s", symbol, e)
+        return []
+
+    recent = data.get("filings", {}).get("recent", {})
+    forms = recent.get("form", [])
+    filing_dates = recent.get("filingDate", [])
+    accessions = recent.get("accessionNumber", [])
+    primary_docs = recent.get("primaryDocument", [])
+
+    # Collect up to 15 most recent Form 4 filings
+    form4s = []
+    for i, form in enumerate(forms):
+        if form == "4":
+            form4s.append((filing_dates[i], accessions[i], primary_docs[i]))
+        if len(form4s) >= 15:
+            break
+
+    if not form4s:
+        return []
+
+    # Parse each Form 4 XML
+    trades: list[dict] = []
+    for filing_date, accession, primary_doc in form4s:
+        # Strip XSLT prefix if present (e.g., "xslF345X05/file.xml" -> "file.xml")
+        xml_filename = primary_doc
+        if "/" in xml_filename:
+            xml_filename = xml_filename.split("/", 1)[1]
+
+        accession_path = accession.replace("-", "")
+        url = f"https://www.sec.gov/Archives/edgar/data/{cik.lstrip('0')}/{accession_path}/{xml_filename}"
+
+        try:
+            xml_resp = httpx.get(url, headers=_SEC_HEADERS, timeout=10)
+            xml_resp.raise_for_status()
+            parsed = _parse_form4_xml(xml_resp.text, filing_date)
+            trades.extend(parsed)
+        except Exception as e:
+            logger.debug("Failed to parse Form 4 %s: %s", accession, e)
+            continue
+
+    # Sort newest-first, limit to 20
+    trades.sort(key=lambda t: t["date"] or "", reverse=True)
+    return trades[:20]
+
+
+# Transaction codes: P=Purchase, S=Sale, M=Exercise, F=Tax withholding,
+# G=Gift, A=Grant/Award. We only surface P and S as buy/sell.
+_BUY_CODES = {"P"}
+_SELL_CODES = {"S"}
+
+
+def _parse_form4_xml(xml_text: str, filing_date: str) -> list[dict]:
+    """Parse a Form 4 XML document and extract non-derivative transactions."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+
+    # Extract owner info
+    owner_el = root.find(".//reportingOwner")
+    owner_name = None
+    owner_title = None
+    if owner_el is not None:
+        name_el = owner_el.find(".//rptOwnerName")
+        if name_el is not None and name_el.text:
+            owner_name = name_el.text.strip()
+        title_el = owner_el.find(".//officerTitle")
+        if title_el is not None and title_el.text:
+            owner_title = title_el.text.strip()
+
+    trades = []
+    for txn in root.findall(".//nonDerivativeTransaction"):
+        code_el = txn.find(".//transactionCode")
+        if code_el is None or code_el.text is None:
+            continue
+
+        code = code_el.text.strip()
+        if code not in _BUY_CODES and code not in _SELL_CODES:
+            continue
+
+        txn_type = "buy" if code in _BUY_CODES else "sell"
+
+        date_el = txn.find(".//transactionDate/value")
+        date_str = date_el.text.strip() if date_el is not None and date_el.text else filing_date
+
+        shares_el = txn.find(".//transactionShares/value")
+        shares = None
+        if shares_el is not None and shares_el.text:
+            try:
+                shares = int(float(shares_el.text.strip()))
+            except ValueError:
+                pass
+
+        price_el = txn.find(".//transactionPricePerShare/value")
+        price = None
+        if price_el is not None and price_el.text:
+            try:
+                price = float(price_el.text.strip())
+            except ValueError:
+                pass
+
+        value = None
+        if shares is not None and price is not None:
+            value = round(shares * price, 2)
+
+        trades.append({
+            "date": date_str,
+            "insider_name": owner_name,
+            "insider_title": owner_title,
+            "transaction_type": txn_type,
+            "shares": shares,
+            "value": value,
+        })
+
+    return trades

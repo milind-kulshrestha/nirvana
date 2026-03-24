@@ -1,4 +1,4 @@
-"""Tests for insider trading data functions."""
+"""Tests for insider trading data functions (SEC EDGAR source)."""
 import json
 import pytest
 from datetime import datetime, timezone
@@ -16,155 +16,205 @@ def mock_cache(monkeypatch):
     return conn
 
 
-def _make_openbb_result(trades_data):
-    """Create a mock OpenBB response with insider trading results."""
-    mock_results = []
-    for t in trades_data:
-        r = MagicMock()
-        r.filing_date = t.get("filing_date")
-        r.transaction_date = t.get("transaction_date")
-        r.owner_name = t.get("owner_name")
-        r.owner_title = t.get("owner_title")
-        r.transaction_type = t.get("transaction_type")
-        r.acquisition_or_disposition = t.get("acquisition_or_disposition")
-        r.securities_transacted = t.get("securities_transacted")
-        r.price = t.get("price")
-        r.value = t.get("value")
-        mock_results.append(r)
-    mock_resp = MagicMock()
-    mock_resp.results = mock_results
-    return mock_resp
+# Sample Form 4 XML for testing
+SAMPLE_FORM4_XML = """<?xml version="1.0"?>
+<ownershipDocument>
+  <issuer>
+    <issuerCik>0000320193</issuerCik>
+    <issuerName>Apple Inc.</issuerName>
+    <issuerTradingSymbol>AAPL</issuerTradingSymbol>
+  </issuer>
+  <reportingOwner>
+    <reportingOwnerId>
+      <rptOwnerName>Jane Doe</rptOwnerName>
+    </reportingOwnerId>
+    <reportingOwnerRelationship>
+      <isOfficer>1</isOfficer>
+      <officerTitle>CEO</officerTitle>
+    </reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <transactionDate><value>2026-03-14</value></transactionDate>
+      <transactionCoding><transactionCode>P</transactionCode></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>5000</value></transactionShares>
+        <transactionPricePerShare><value>150.00</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+</ownershipDocument>"""
+
+SAMPLE_FORM4_SELL_XML = """<?xml version="1.0"?>
+<ownershipDocument>
+  <issuer>
+    <issuerCik>0000320193</issuerCik>
+    <issuerName>Apple Inc.</issuerName>
+    <issuerTradingSymbol>AAPL</issuerTradingSymbol>
+  </issuer>
+  <reportingOwner>
+    <reportingOwnerId>
+      <rptOwnerName>John Smith</rptOwnerName>
+    </reportingOwnerId>
+    <reportingOwnerRelationship>
+      <isOfficer>1</isOfficer>
+      <officerTitle>CFO</officerTitle>
+    </reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <transactionDate><value>2026-03-09</value></transactionDate>
+      <transactionCoding><transactionCode>S</transactionCode></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>10000</value></transactionShares>
+        <transactionPricePerShare><value>148.00</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>D</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+</ownershipDocument>"""
+
+# RSU vesting (M code) — should be filtered out
+SAMPLE_FORM4_RSU_XML = """<?xml version="1.0"?>
+<ownershipDocument>
+  <reportingOwner>
+    <reportingOwnerId><rptOwnerName>RSU Person</rptOwnerName></reportingOwnerId>
+    <reportingOwnerRelationship><officerTitle>VP</officerTitle></reportingOwnerRelationship>
+  </reportingOwner>
+  <nonDerivativeTable>
+    <nonDerivativeTransaction>
+      <transactionDate><value>2026-03-15</value></transactionDate>
+      <transactionCoding><transactionCode>M</transactionCode></transactionCoding>
+      <transactionAmounts>
+        <transactionShares><value>1000</value></transactionShares>
+        <transactionPricePerShare><value>0</value></transactionPricePerShare>
+        <transactionAcquiredDisposedCode><value>A</value></transactionAcquiredDisposedCode>
+      </transactionAmounts>
+    </nonDerivativeTransaction>
+  </nonDerivativeTable>
+</ownershipDocument>"""
+
+# Mock SEC EDGAR submissions response
+MOCK_SUBMISSIONS = {
+    "filings": {
+        "recent": {
+            "form": ["4", "4", "4", "10-K"],
+            "filingDate": ["2026-03-15", "2026-03-10", "2026-03-05", "2026-02-01"],
+            "accessionNumber": [
+                "0001-26-000001", "0002-26-000002", "0003-26-000003", "0004-26-000004"
+            ],
+            "primaryDocument": [
+                "xslF345X05/form4.xml", "form4_sell.xml", "xslF345X05/form4_rsu.xml", "10k.htm"
+            ],
+        }
+    }
+}
+
+MOCK_TICKERS = {
+    "0": {"cik_str": 320193, "ticker": "AAPL", "title": "Apple Inc."},
+    "1": {"cik_str": 789019, "ticker": "MSFT", "title": "Microsoft Corp"},
+}
+
+
+def _mock_httpx_get(url, **kwargs):
+    """Mock httpx.get responses for SEC EDGAR URLs."""
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.raise_for_status = MagicMock()
+
+    if "company_tickers.json" in url:
+        resp.json.return_value = MOCK_TICKERS
+    elif "submissions/CIK" in url:
+        resp.json.return_value = MOCK_SUBMISSIONS
+    elif "000126000001/form4.xml" in url:
+        resp.text = SAMPLE_FORM4_XML
+    elif "000226000002/form4_sell.xml" in url:
+        resp.text = SAMPLE_FORM4_SELL_XML
+    elif "000326000003/form4_rsu.xml" in url:
+        resp.text = SAMPLE_FORM4_RSU_XML
+    else:
+        resp.raise_for_status.side_effect = Exception(f"Unexpected URL: {url}")
+
+    return resp
+
+
+class TestParseForm4Xml:
+    def test_parses_purchase(self):
+        from app.lib.openbb import _parse_form4_xml
+        trades = _parse_form4_xml(SAMPLE_FORM4_XML, "2026-03-15")
+        assert len(trades) == 1
+        t = trades[0]
+        assert t["insider_name"] == "Jane Doe"
+        assert t["insider_title"] == "CEO"
+        assert t["transaction_type"] == "buy"
+        assert t["shares"] == 5000
+        assert t["value"] == 750000.0
+        assert t["date"] == "2026-03-14"
+
+    def test_parses_sale(self):
+        from app.lib.openbb import _parse_form4_xml
+        trades = _parse_form4_xml(SAMPLE_FORM4_SELL_XML, "2026-03-10")
+        assert len(trades) == 1
+        t = trades[0]
+        assert t["insider_name"] == "John Smith"
+        assert t["transaction_type"] == "sell"
+        assert t["shares"] == 10000
+        assert t["value"] == 1480000.0
+
+    def test_filters_non_buy_sell(self):
+        from app.lib.openbb import _parse_form4_xml
+        trades = _parse_form4_xml(SAMPLE_FORM4_RSU_XML, "2026-03-05")
+        assert len(trades) == 0  # M (exercise) transactions are filtered out
 
 
 class TestGetInsiderTrading:
     def test_returns_normalized_trades(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
+        from app.lib.openbb import get_insider_trading, _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        mock_data = _make_openbb_result([
-            {
-                "filing_date": "2026-03-15",
-                "transaction_date": "2026-03-14",
-                "owner_name": "Jane Doe",
-                "owner_title": "CEO",
-                "transaction_type": "P-Purchase",
-                "acquisition_or_disposition": "A",
-                "securities_transacted": 5000.0,
-                "price": 150.0,
-                "value": 750000.0,
-            },
-            {
-                "filing_date": "2026-03-10",
-                "transaction_date": "2026-03-09",
-                "owner_name": "John Smith",
-                "owner_title": "CFO",
-                "transaction_type": "S-Sale",
-                "acquisition_or_disposition": "D",
-                "securities_transacted": 10000.0,
-                "price": 148.0,
-                "value": 1480000.0,
-            },
-        ])
-
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_data
+        with patch("app.lib.openbb.httpx.get", side_effect=_mock_httpx_get):
             result = get_insider_trading("AAPL")
 
+        # Should have 2 trades (buy + sell), RSU filtered out
         assert len(result) == 2
         assert result[0]["insider_name"] == "Jane Doe"
-        assert result[0]["insider_title"] == "CEO"
         assert result[0]["transaction_type"] == "buy"
         assert result[0]["shares"] == 5000
         assert result[0]["value"] == 750000.0
+        assert result[1]["insider_name"] == "John Smith"
         assert result[1]["transaction_type"] == "sell"
 
     def test_caches_result(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
+        from app.lib.openbb import get_insider_trading, _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        mock_data = _make_openbb_result([{
-            "filing_date": "2026-03-15",
-            "transaction_date": "2026-03-14",
-            "owner_name": "Jane Doe",
-            "owner_title": "CEO",
-            "transaction_type": "P-Purchase",
-            "acquisition_or_disposition": "A",
-            "securities_transacted": 5000.0,
-            "price": 150.0,
-            "value": 750000.0,
-        }])
-
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_data
+        with patch("app.lib.openbb.httpx.get", side_effect=_mock_httpx_get) as mock_get:
             get_insider_trading("AAPL")
+            call_count_first = mock_get.call_count
             result = get_insider_trading("AAPL")
 
-        assert mock_obb.equity.ownership.insider_trading.call_count == 1
-        assert len(result) == 1
+        # Second call should not make any HTTP requests (cache hit)
+        assert mock_get.call_count == call_count_first
+        assert len(result) == 2
 
-    def test_empty_results(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
+    def test_unknown_symbol_returns_empty(self, mock_cache):
+        from app.lib.openbb import get_insider_trading, _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        mock_resp = MagicMock()
-        mock_resp.results = []
-
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_resp
-            result = get_insider_trading("AAPL")
+        with patch("app.lib.openbb.httpx.get", side_effect=_mock_httpx_get):
+            result = get_insider_trading("ZZZZZ")
 
         assert result == []
-
-    def test_computes_value_when_missing(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
-
-        mock_data = _make_openbb_result([{
-            "filing_date": "2026-03-15",
-            "transaction_date": "2026-03-14",
-            "owner_name": "Alice",
-            "owner_title": "VP",
-            "transaction_type": "P-Purchase",
-            "acquisition_or_disposition": "A",
-            "securities_transacted": 100.0,
-            "price": 50.0,
-            "value": None,
-        }])
-
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_data
-            result = get_insider_trading("TSLA")
-
-        assert result[0]["value"] == 5000.0
 
     def test_api_failure_returns_empty(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
+        from app.lib.openbb import get_insider_trading, _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.side_effect = Exception("API down")
+        with patch("app.lib.openbb.httpx.get", side_effect=Exception("network error")):
             result = get_insider_trading("AAPL")
 
         assert result == []
-
-    def test_limits_to_20_trades(self, mock_cache):
-        from app.lib.openbb import get_insider_trading
-
-        trades = []
-        for i in range(30):
-            trades.append({
-                "filing_date": f"2026-01-{i+1:02d}",
-                "transaction_date": f"2026-01-{i+1:02d}",
-                "owner_name": f"Person {i}",
-                "owner_title": "VP",
-                "transaction_type": "P-Purchase",
-                "acquisition_or_disposition": "A",
-                "securities_transacted": 100.0,
-                "price": 10.0,
-                "value": 1000.0,
-            })
-        mock_data = _make_openbb_result(trades)
-
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_data
-            result = get_insider_trading("AAPL")
-
-        assert len(result) == 20
 
 
 from fastapi import FastAPI
@@ -182,34 +232,10 @@ def client(mock_cache):
 
 class TestInsiderTradesEndpoint:
     def test_returns_trades_with_summary(self, client):
-        mock_trades = [
-            {
-                "filing_date": "2026-03-15",
-                "transaction_date": "2026-03-14",
-                "owner_name": "Jane Doe",
-                "owner_title": "CEO",
-                "transaction_type": "P-Purchase",
-                "acquisition_or_disposition": "A",
-                "securities_transacted": 5000.0,
-                "price": 150.0,
-                "value": 750000.0,
-            },
-            {
-                "filing_date": "2026-02-10",
-                "transaction_date": "2026-02-09",
-                "owner_name": "John Smith",
-                "owner_title": "CFO",
-                "transaction_type": "S-Sale",
-                "acquisition_or_disposition": "D",
-                "securities_transacted": 10000.0,
-                "price": 148.0,
-                "value": 1480000.0,
-            },
-        ]
-        mock_data = _make_openbb_result(mock_trades)
+        from app.lib.openbb import _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_data
+        with patch("app.lib.openbb.httpx.get", side_effect=_mock_httpx_get):
             response = client.get("/api/securities/AAPL/insider-trades")
 
         assert response.status_code == 200
@@ -224,12 +250,11 @@ class TestInsiderTradesEndpoint:
         assert len(body["trades"]) == 2
 
     def test_empty_insider_trades(self, client):
-        mock_resp = MagicMock()
-        mock_resp.results = []
+        from app.lib.openbb import _CIK_CACHE
+        _CIK_CACHE.clear()
 
-        with patch("app.lib.openbb.obb") as mock_obb:
-            mock_obb.equity.ownership.insider_trading.return_value = mock_resp
-            response = client.get("/api/securities/AAPL/insider-trades")
+        with patch("app.lib.openbb.httpx.get", side_effect=_mock_httpx_get):
+            response = client.get("/api/securities/ZZZZZ/insider-trades")
 
         assert response.status_code == 200
         body = response.json()
