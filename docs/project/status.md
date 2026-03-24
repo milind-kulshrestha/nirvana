@@ -1,12 +1,21 @@
 # Project Status
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-23
 
-## Current Status: FMP MCP Integration + Chat Enhancements Complete
+## Current Status: Insider Trades Feature Complete
 
-Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, and professional-grade charting.
+Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, professional-grade charting, and insider trading visibility.
 
-### Latest Accomplishments (2026-03-19)
+### Latest Accomplishments (2026-03-23)
+- ✅ **Insider Trades in Stock Detail** — New "Insider Trades" tab in StockRow expanded panel
+  - `InsiderTrades.jsx`: buy/sell stacked summary bar + chronological trade table
+  - Data sourced from SEC EDGAR Form 4 filings (free, no API key needed)
+  - `get_insider_trading()` in openbb.py: CIK lookup → EDGAR submissions → Form 4 XML parsing
+  - `GET /api/securities/{symbol}/insider-trades`: 3-month summary + 20 most recent trades
+  - Lazy-loaded on tab click, cached in DuckDB with 24h TTL
+  - Only surfaces actual buys (P) and sells (S), filters out RSU vesting/tax withholding
+
+### Previous Accomplishments (2026-03-19)
 - ✅ **FMP MCP Integration** — Agent now optionally loads Financial Modeling Prep tools via MCP server
   - `fmp_mcp.py`: `FMPMCPManager` spawns `npx financial-modeling-prep-mcp-server`, maintains SSE connection
   - Tools injected into agent at startup; gracefully skipped if Node.js/API key unavailable

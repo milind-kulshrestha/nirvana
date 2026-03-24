@@ -6,6 +6,30 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-23] - Insider Trades in Stock Detail
+
+### Added
+- **Insider Trades tab** in StockRow expanded panel (alongside Chart tab)
+  - `InsiderTrades.jsx` (new): summary bar (buy/sell stacked bar + stats) + trade table
+  - Tabbed interface via shadcn/ui Tabs: "Chart" (default) + "Insider Trades" (lazy-loaded)
+- **`get_insider_trading(symbol)`** in `openbb.py` — fetches Form 4 insider trades from SEC EDGAR
+  - Looks up company CIK from `sec.gov/files/company_tickers.json` (in-memory cache)
+  - Fetches recent Form 4 filings from EDGAR submissions API
+  - Parses Form 4 XML to extract buy (P) and sell (S) transactions
+  - Filters out non-trade transactions (RSU vesting M, tax withholding F, gifts G)
+  - Computes trade value from shares * price
+  - Cached in DuckDB fundamentals table with 24h TTL
+- **`GET /api/securities/{symbol}/insider-trades`** endpoint in `securities.py`
+  - Returns 3-month buy/sell summary (counts + values + net) + up to 20 most recent trades
+- **Design doc**: `docs/plans/2026-03-22-insider-trades-design.md`
+
+### Changed
+- **`StockRow.jsx`** — expanded panel now uses Tabs component instead of flat CandlestickChart
+- **`openbb.py`** — added `httpx` and `xml.etree.ElementTree` imports for SEC EDGAR integration
+
+### Notes
+- Originally planned to use OpenBB/FMP for insider data, but FMP per-symbol insider trading endpoints require a paid plan (402 Restricted). Switched to SEC EDGAR Form 4 filings (free public data).
+
 ## [2026-03-19] - FMP MCP Integration + Chat Enhancements
 
 ### Added

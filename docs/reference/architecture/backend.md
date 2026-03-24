@@ -159,6 +159,10 @@ Environment-based settings:
 - `GET /api/securities/{symbol}/ratios`
   - Returns historical financial ratios (P/E, P/B, P/S)
   - Requires authentication (uses `get_current_user` dependency)
+- `GET /api/securities/{symbol}/insider-trades`
+  - Returns insider trading data from SEC EDGAR Form 4 filings
+  - Response: `{ summary: { total_buys, total_sells, buy_value, sell_value, net_value, period }, trades: [...] }`
+  - Summary aggregates last 3 months; trades returns up to 20 most recent
 
 ## Utilities
 
@@ -189,6 +193,13 @@ OpenBB SDK integration with DuckDB cache layer:
   - Caches full OHLCV data on fetch
 
 All cache operations wrapped in try/except for graceful degradation if DuckDB is unavailable.
+
+- `get_insider_trading(symbol)` - Returns list of `{date, insider_name, insider_title, transaction_type, shares, value}`
+  - Data source: SEC EDGAR Form 4 filings (free public data, no API key needed)
+  - Looks up CIK from `sec.gov/files/company_tickers.json` (in-memory cache)
+  - Fetches recent filings from `data.sec.gov/submissions/CIK{cik}.json`
+  - Parses Form 4 XML for buy (P) and sell (S) transactions only
+  - Cached in DuckDB fundamentals table (TTL: 24 hours, key: `{SYMBOL}:insider_trades`)
 
 - `get_financial_ratios(symbol)` - Returns list of `{date, pe_ratio, pb_ratio, ps_ratio}`
   - Uses `obb.equity.fundamental.ratios(symbol, provider="fmp")`
