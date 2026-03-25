@@ -854,3 +854,46 @@ def _parse_form4_xml(xml_text: str, filing_date: str) -> list[dict]:
         })
 
     return trades
+
+
+# ---------------------------------------------------------------------------
+# Direct FMP API helpers
+# ---------------------------------------------------------------------------
+
+def _fmp_get(path: str, params: dict | None = None) -> list | dict:
+    """GET from FMP stable API with API key from config.
+
+    Args:
+        path: URL path after /stable/ (e.g. "profile")
+        params: Query params (symbol, limit, period, etc.)
+
+    Returns:
+        Parsed JSON response (list or dict).
+
+    Raises:
+        SymbolNotFoundError: on 404 or empty response.
+        OpenBBTimeoutError: on timeout.
+    """
+    from app.lib.config_manager import config_manager
+    api_key = config_manager.get("fmp_api_key", "")
+    if not api_key:
+        raise SymbolNotFoundError("FMP API key not configured")
+
+    url = f"https://financialmodelingprep.com/stable/{path}"
+    all_params = {**(params or {}), "apikey": api_key}
+
+    try:
+        resp = httpx.get(url, params=all_params, timeout=10)
+        if resp.status_code == 402:
+            raise SymbolNotFoundError(f"FMP endpoint restricted: {path}")
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, list) and len(data) == 0:
+            raise SymbolNotFoundError(f"No data from FMP for {path}")
+        return data
+    except httpx.TimeoutException:
+        raise OpenBBTimeoutError(f"FMP timeout: {path}")
+    except (SymbolNotFoundError, OpenBBTimeoutError):
+        raise
+    except Exception as e:
+        raise SymbolNotFoundError(f"FMP error for {path}: {e}")
