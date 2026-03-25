@@ -897,3 +897,88 @@ def _fmp_get(path: str, params: dict | None = None) -> list | dict:
         raise
     except Exception as e:
         raise SymbolNotFoundError(f"FMP error for {path}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Fundamentals (company profile + key metrics)
+# ---------------------------------------------------------------------------
+
+def _safe_pe(profile: dict, metrics: dict) -> float | None:
+    """Extract P/E ratio from profile or compute from earnings yield."""
+    pe = profile.get("peRatio") or metrics.get("peRatio")
+    if pe:
+        return pe
+    ey = metrics.get("earningsYield")
+    if ey and ey != 0:
+        return round(1.0 / ey, 2)
+    return None
+
+
+def get_fundamentals(symbol: str) -> dict:
+    """
+    Fetch company fundamentals for symbol from FMP API.
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:fundamentals).
+    On miss, fetches from FMP profile + key-metrics endpoints and caches the result.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with company info and financial metrics.
+    """
+    cache_key = f"{symbol.upper()}:fundamentals"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for fundamentals %s", symbol)
+
+    # --- cache miss: fetch from FMP ---
+    profile_data = _fmp_get("profile", {"symbol": symbol.upper()})
+    metrics_data = _fmp_get("key-metrics", {"symbol": symbol.upper(), "limit": 1})
+
+    # profile returns a list with one element
+    profile = profile_data[0] if isinstance(profile_data, list) else profile_data
+    metrics = metrics_data[0] if isinstance(metrics_data, list) else metrics_data
+
+    result = {
+        # Company info (from profile)
+        "company_name": profile.get("companyName"),
+        "sector": profile.get("sector"),
+        "industry": profile.get("industry"),
+        "description": profile.get("description"),
+        "ceo": profile.get("ceo"),
+        "employees": profile.get("fullTimeEmployees"),
+        "website": profile.get("website"),
+        # Valuation metrics
+        "market_cap": metrics.get("marketCap"),
+        "enterprise_value": metrics.get("enterpriseValue"),
+        "pe_ratio": _safe_pe(profile, metrics),
+        "ev_to_ebitda": metrics.get("evToEBITDA"),
+        "ev_to_sales": metrics.get("evToSales"),
+        # Profitability
+        "roe": metrics.get("returnOnEquity"),
+        "roa": metrics.get("returnOnAssets"),
+        "roic": metrics.get("returnOnInvestedCapital"),
+        # Financial health
+        "current_ratio": metrics.get("currentRatio"),
+        "free_cash_flow_yield": metrics.get("freeCashFlowYield"),
+        # Other
+        "dividend_yield": profile.get("lastDividend"),
+        "beta": profile.get("beta"),
+        "52w_range": profile.get("range"),
+    }
+
+    # Cache with 24h TTL
+    try:
+        from app.lib.market_cache import cache_fundamentals
+        cache_fundamentals(cache_key, result)
+    except Exception:
+        logger.debug("Cache write failed for fundamentals %s", symbol)
+
+    return result
