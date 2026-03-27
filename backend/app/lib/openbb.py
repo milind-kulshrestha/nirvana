@@ -1019,7 +1019,7 @@ def get_earnings(symbol: str) -> dict:
     try:
         income_data = _fmp_get(
             "income-statement",
-            {"symbol": symbol.upper(), "period": "quarter", "limit": 8},
+            {"symbol": symbol.upper(), "period": "quarter", "limit": 5},
         )
         if isinstance(income_data, list):
             for item in income_data:
