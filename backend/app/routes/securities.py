@@ -7,7 +7,7 @@ import logging
 
 from app.lib.openbb import (
     get_quote, get_ma_200, get_history, get_ohlcv, get_performance, get_estimates,
-    get_insider_trading, get_fundamentals,
+    get_insider_trading, get_fundamentals, get_earnings,
     SymbolNotFoundError, OpenBBTimeoutError,
 )
 
@@ -218,6 +218,22 @@ async def get_fundamentals_route(symbol: str):
     symbol = symbol.upper()
     try:
         data = get_fundamentals(symbol)
+        return data
+    except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{symbol}/earnings")
+async def get_earnings_route(symbol: str):
+    """
+    Get earnings data (quarterly actuals + forward estimates) for a symbol.
+
+    Returns:
+        Dict with 'quarterly' (income statement actuals) and 'forward' (analyst estimates).
+    """
+    symbol = symbol.upper()
+    try:
+        data = get_earnings(symbol)
         return data
     except (SymbolNotFoundError, OpenBBTimeoutError) as e:
         raise HTTPException(status_code=404, detail=str(e))

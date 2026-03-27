@@ -982,3 +982,88 @@ def get_fundamentals(symbol: str) -> dict:
         logger.debug("Cache write failed for fundamentals %s", symbol)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Earnings (quarterly actuals + forward estimates)
+# ---------------------------------------------------------------------------
+
+def get_earnings(symbol: str) -> dict:
+    """
+    Fetch quarterly earnings actuals and forward analyst estimates for symbol.
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:earnings).
+    On miss, fetches from FMP income-statement + analyst-estimates endpoints.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with 'quarterly' (list of actual results) and 'forward' (list of estimates).
+    """
+    cache_key = f"{symbol.upper()}:earnings"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for earnings %s", symbol)
+
+    quarterly = []
+    forward = []
+
+    # --- Quarterly actuals from income-statement ---
+    try:
+        income_data = _fmp_get(
+            "income-statement",
+            {"symbol": symbol.upper(), "period": "quarter", "limit": 8},
+        )
+        if isinstance(income_data, list):
+            for item in income_data:
+                quarterly.append({
+                    "date": item.get("date", ""),
+                    "period": item.get("period", ""),
+                    "fiscal_year": str(item.get("fiscalYear") or item.get("calendarYear", "")),
+                    "revenue": item.get("revenue"),
+                    "net_income": item.get("netIncome"),
+                    "eps": item.get("eps"),
+                    "eps_diluted": item.get("epsDiluted") or item.get("epsdiluted"),
+                })
+    except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+        logger.warning("Earnings quarterly fetch failed for %s: %s", symbol, e)
+
+    # --- Forward estimates from analyst-estimates ---
+    try:
+        estimates_data = _fmp_get(
+            "analyst-estimates",
+            {"symbol": symbol.upper(), "period": "annual", "limit": 3},
+        )
+        if isinstance(estimates_data, list):
+            for item in estimates_data:
+                forward.append({
+                    "date": item.get("date", ""),
+                    "revenue_avg": item.get("revenueAvg"),
+                    "revenue_low": item.get("revenueLow"),
+                    "revenue_high": item.get("revenueHigh"),
+                    "eps_avg": item.get("epsAvg"),
+                    "eps_low": item.get("epsLow"),
+                    "eps_high": item.get("epsHigh"),
+                    "ebitda_avg": item.get("ebitdaAvg"),
+                    "net_income_avg": item.get("netIncomeAvg"),
+                })
+    except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+        logger.warning("Earnings forward estimates fetch failed for %s: %s", symbol, e)
+
+    result = {"quarterly": quarterly, "forward": forward}
+
+    # Cache with 24h TTL (reuses fundamentals table)
+    try:
+        from app.lib.market_cache import cache_fundamentals
+        cache_fundamentals(cache_key, result)
+    except Exception:
+        logger.debug("Cache write failed for earnings %s", symbol)
+
+    return result
