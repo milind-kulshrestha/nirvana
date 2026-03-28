@@ -985,6 +985,80 @@ def get_fundamentals(symbol: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Valuation History (annual ratios over time)
+# ---------------------------------------------------------------------------
+
+def get_valuation_history(symbol: str) -> list[dict]:
+    """
+    Fetch annual valuation multiples for symbol from FMP API.
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:valuation).
+    On miss, fetches from FMP ratios + key-metrics endpoints and caches the result.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        List of dicts sorted oldest-first with annual P/E, P/S, P/B,
+        EV/EBITDA, EV/Sales, and PEG ratio (up to 5 years).
+    """
+    symbol = symbol.upper()
+    cache_key = f"{symbol}:valuation"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for valuation %s", symbol)
+
+    # --- cache miss: fetch from FMP ---
+    ratios_data = _fmp_get("ratios", {"symbol": symbol, "limit": 5})
+    metrics_data = _fmp_get("key-metrics", {"symbol": symbol, "limit": 5})
+
+    # Build lookup by date from metrics
+    metrics_by_date = {}
+    if isinstance(metrics_data, list):
+        for m in metrics_data:
+            d = m.get("date")
+            if d:
+                metrics_by_date[d] = m
+
+    # Merge ratios + metrics by date
+    results = []
+    if isinstance(ratios_data, list):
+        for r in ratios_data:
+            date = r.get("date")
+            if not date:
+                continue
+            m = metrics_by_date.get(date, {})
+            results.append({
+                "date": date,
+                "fiscal_year": r.get("fiscalYear") or (date[:4] if date else None),
+                "pe_ratio": r.get("priceToEarningsRatio"),
+                "ps_ratio": r.get("priceToSalesRatio"),
+                "pb_ratio": r.get("priceToBookRatio"),
+                "ev_to_ebitda": m.get("evToEBITDA"),
+                "ev_to_sales": m.get("evToSales"),
+                "peg_ratio": r.get("priceToEarningsGrowthRatio"),
+            })
+
+    # Sort oldest-first
+    results.sort(key=lambda x: x["date"])
+
+    # Cache with 24h TTL
+    try:
+        from app.lib.market_cache import cache_fundamentals
+        cache_fundamentals(cache_key, results)
+    except Exception:
+        logger.debug("Cache write failed for valuation %s", symbol)
+
+    return results
+
+
+# ---------------------------------------------------------------------------
 # Earnings (quarterly actuals + forward estimates)
 # ---------------------------------------------------------------------------
 

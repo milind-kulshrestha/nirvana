@@ -8,6 +8,7 @@ import logging
 from app.lib.openbb import (
     get_quote, get_ma_200, get_history, get_ohlcv, get_performance, get_estimates,
     get_insider_trading, get_fundamentals, get_earnings, get_analyst_coverage,
+    get_valuation_history,
     SymbolNotFoundError, OpenBBTimeoutError,
 )
 
@@ -250,6 +251,22 @@ async def get_analyst_route(symbol: str):
     symbol = symbol.upper()
     try:
         data = get_analyst_coverage(symbol)
+        return data
+    except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/{symbol}/valuation")
+async def get_valuation_route(symbol: str):
+    """
+    Get historical valuation multiples (annual P/E, P/S, P/B, EV/EBITDA) for a symbol.
+
+    Returns:
+        List of annual valuation entries sorted oldest-first.
+    """
+    symbol = symbol.upper()
+    try:
+        data = get_valuation_history(symbol)
         return data
     except (SymbolNotFoundError, OpenBBTimeoutError) as e:
         raise HTTPException(status_code=404, detail=str(e))
