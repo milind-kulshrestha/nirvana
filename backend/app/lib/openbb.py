@@ -939,12 +939,22 @@ def get_fundamentals(symbol: str) -> dict:
         logger.debug("Cache read failed for fundamentals %s", symbol)
 
     # --- cache miss: fetch from FMP ---
-    profile_data = _fmp_get("profile", {"symbol": symbol.upper()})
-    metrics_data = _fmp_get("key-metrics", {"symbol": symbol.upper(), "limit": 1})
+    profile = {}
+    metrics = {}
+    try:
+        profile_data = _fmp_get("profile", {"symbol": symbol.upper()})
+        profile = profile_data[0] if isinstance(profile_data, list) else profile_data
+    except (SymbolNotFoundError, OpenBBTimeoutError):
+        logger.debug("Profile fetch failed for %s", symbol)
 
-    # profile returns a list with one element
-    profile = profile_data[0] if isinstance(profile_data, list) else profile_data
-    metrics = metrics_data[0] if isinstance(metrics_data, list) else metrics_data
+    try:
+        metrics_data = _fmp_get("key-metrics", {"symbol": symbol.upper(), "limit": 1})
+        metrics = metrics_data[0] if isinstance(metrics_data, list) else metrics_data
+    except (SymbolNotFoundError, OpenBBTimeoutError):
+        logger.debug("Key-metrics fetch failed for %s", symbol)
+
+    if not profile and not metrics:
+        raise SymbolNotFoundError(f"No fundamentals data for {symbol}")
 
     result = {
         # Company info (from profile)
@@ -1015,8 +1025,16 @@ def get_valuation_history(symbol: str) -> list[dict]:
         logger.debug("Cache read failed for valuation %s", symbol)
 
     # --- cache miss: fetch from FMP ---
-    ratios_data = _fmp_get("ratios", {"symbol": symbol, "limit": 5})
-    metrics_data = _fmp_get("key-metrics", {"symbol": symbol, "limit": 5})
+    ratios_data = []
+    metrics_data = []
+    try:
+        ratios_data = _fmp_get("ratios", {"symbol": symbol, "limit": 5})
+    except (SymbolNotFoundError, OpenBBTimeoutError):
+        logger.debug("Ratios fetch failed for %s", symbol)
+    try:
+        metrics_data = _fmp_get("key-metrics", {"symbol": symbol, "limit": 5})
+    except (SymbolNotFoundError, OpenBBTimeoutError):
+        logger.debug("Key-metrics fetch failed for valuation %s", symbol)
 
     # Build lookup by date from metrics
     metrics_by_date = {}
