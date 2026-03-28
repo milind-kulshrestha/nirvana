@@ -1,19 +1,25 @@
 # Project Status
 
-**Last Updated:** 2026-03-23
+**Last Updated:** 2026-03-28
 
-## Current Status: Insider Trades Feature Complete
+## Current Status: Stock Detail Tabs Expansion Complete
 
-Nirvana has expanded beyond basic watchlist tracking with rich market data, discovery tools, professional-grade charting, and insider trading visibility.
+Nirvana's stock detail panel now features 6 tabs of rich data: Chart, Fundamentals, Earnings, Analysts, Valuation, and Insiders. All tabs lazy-load on selection with 24h DuckDB caching.
 
-### Latest Accomplishments (2026-03-23)
-- ✅ **Insider Trades in Stock Detail** — New "Insider Trades" tab in StockRow expanded panel
-  - `InsiderTrades.jsx`: buy/sell stacked summary bar + chronological trade table
+### Latest Accomplishments (2026-03-28)
+- ✅ **Fundamentals tab** — Company profile (description, sector, CEO, website) + 12-metric grid (market cap, P/E, EV/EBITDA, ROE, ROA, ROIC, etc.) from FMP profile + key-metrics
+- ✅ **Earnings tab** — Quarterly EPS bar chart (5 quarters, color-coded) + forward analyst estimates table (3 years of revenue/EPS/EBITDA projections)
+- ✅ **Analyst Coverage tab** — Consensus rating badge (color-coded), average price target with upside %, analyst activity stats, forward estimates with analyst counts
+- ✅ **Valuation tab** — 5-year historical P/E, P/S, P/B, EV/EBITDA line charts from FMP annual ratios + key-metrics
+- ✅ **`_fmp_get()` helper** — Direct FMP stable API calls with config-based API key, 402/timeout error handling; replaces OpenBB wrappers for fundamental data (more reliable results)
+- ✅ **StockRow refactor** — Generic `fetchTabData` helper replaces per-tab fetch functions; TabsList wraps on mobile
+- ✅ **Graceful degradation** — Endpoints return partial data for ETFs/symbols with missing metrics instead of 500 errors
+- ✅ **Dead code cleanup** — Removed unused `StockAnalytics.jsx` and `PriceChart.jsx`
+
+### Previous Accomplishments (2026-03-23)
+- ✅ **Insider Trades in Stock Detail** — "Insiders" tab in StockRow expanded panel
   - Data sourced from SEC EDGAR Form 4 filings (free, no API key needed)
-  - `get_insider_trading()` in openbb.py: CIK lookup → EDGAR submissions → Form 4 XML parsing
-  - `GET /api/securities/{symbol}/insider-trades`: 3-month summary + 20 most recent trades
-  - Lazy-loaded on tab click, cached in DuckDB with 24h TTL
-  - Only surfaces actual buys (P) and sells (S), filters out RSU vesting/tax withholding
+  - 3-month buy/sell summary + 20 most recent trades, cached 24h
 
 ### Previous Accomplishments (2026-03-19)
 - ✅ **FMP MCP Integration** — Agent now optionally loads Financial Modeling Prep tools via MCP server

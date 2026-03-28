@@ -147,9 +147,18 @@ User (1) ──────< (many) PendingAction
 - OpenBB SDK in `app/lib/openbb.py` (cache-first, graceful fallback)
 - DuckDB cache in `app/lib/market_cache.py` (quotes 15min TTL, fundamentals 24h TTL)
 - Background scheduler in `app/lib/scheduler.py` (APScheduler)
-- Functions: `get_quote()`, `get_ma_200()`, `get_history()`
-- Provider: FMP (Financial Modeling Prep)
+- Functions: `get_quote()`, `get_ma_200()`, `get_history()`, `get_ohlcv()`, `get_performance()`, `get_estimates()`, `get_insider_trading()`, `get_fundamentals()`, `get_earnings()`, `get_analyst_coverage()`
+- Provider: FMP (Financial Modeling Prep) via OpenBB SDK or direct `_fmp_get()` helper
+- Insider trades: SEC EDGAR Form 4 filings (FMP insider endpoints are restricted)
 - API keys via `~/.nirvana/config.json` or env vars
+
+#### FMP API Constraints (Current Plan)
+- **Use `/stable/` endpoints only** — v3 (`/api/v3/`) returns 403 "Legacy Endpoint"
+- **`limit` parameter capped at 5** for ratios, key-metrics, income-statement, analyst-estimates
+- **Quarterly period restricted** for ratios and key-metrics (402) — annual only
+- **Restricted endpoints (402/404):** `historical_eps`, `price_target`, `estimates.historical`, `earning-surprises`, `social-sentiments`, `insider-trading` (per-symbol)
+- **Direct FMP calls preferred** over OpenBB wrappers for fundamental data — use `_fmp_get(path, params)` helper which reads API key from `config_manager`, handles 402/timeout errors
+- **Config access:** Use `config_manager.get("fmp_api_key", "")` (not `get_config()`)
 
 ### Settings & Config
 - `~/.nirvana/config.json` stores API keys and preferences

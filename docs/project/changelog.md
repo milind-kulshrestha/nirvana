@@ -6,6 +6,40 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-28] - Stock Detail Tabs Expansion
+
+### Added
+- **Fundamentals tab** — Company profile + 12-metric grid (market cap, P/E, EV/EBITDA, ROE, etc.)
+  - `Fundamentals.jsx` (new): company description, sector/industry badges, CEO, website link, metrics grid
+  - `get_fundamentals(symbol)` in `openbb.py`: FMP profile + key-metrics with 24h cache
+  - `GET /api/securities/{symbol}/fundamentals` endpoint
+- **Earnings tab** — Quarterly EPS bar chart + forward analyst estimates
+  - `Earnings.jsx` (new): Recharts BarChart (green/red by sign) + forward estimates table
+  - `get_earnings(symbol)` in `openbb.py`: FMP income-statement (quarterly, limit=5) + analyst-estimates (annual)
+  - `GET /api/securities/{symbol}/earnings` endpoint
+- **Analyst Coverage tab** — Consensus rating, price target summary, forward estimates
+  - `AnalystCoverage.jsx` (new): consensus badge with color-coded rating, avg price target with upside %, analyst activity stats, forward estimates table
+  - `get_analyst_coverage(symbol)` in `openbb.py`: combines consensus + price-target-summary + analyst-estimates
+  - `GET /api/securities/{symbol}/analyst` endpoint
+- **Valuation tab** — 5-year historical P/E, P/S, P/B, EV/EBITDA line charts
+  - `ValuationChart.jsx` (rewritten): 4 stacked Recharts LineCharts with distinct colors, fiscal year X-axis
+  - `get_valuation_history(symbol)` in `openbb.py`: FMP ratios + key-metrics (annual, limit=5) merged by date
+  - `GET /api/securities/{symbol}/valuation` endpoint
+- **`_fmp_get(path, params)`** helper in `openbb.py` — Direct FMP stable API calls with config-based API key, 402/timeout error handling
+
+### Changed
+- **`StockRow.jsx`** — Expanded panel now has 6 tabs (Chart, Fundamentals, Earnings, Analysts, Valuation, Insiders). Generic `fetchTabData` helper replaces per-tab fetch functions. TabsList wraps on mobile.
+- **Backend endpoints** — `get_fundamentals()` and `get_valuation_history()` wrap FMP calls in try/except for graceful ETF/partial data handling
+
+### Removed
+- **`StockAnalytics.jsx`** — Dead code, never integrated into StockRow
+- **`PriceChart.jsx`** — Only used by StockAnalytics, replaced by CandlestickChart
+
+### Notes
+- FMP plan caps `limit` parameter to 5 for ratios, key-metrics, income-statement, analyst-estimates
+- FMP v3 endpoints are deprecated (403); all calls use `/stable/` endpoints via `_fmp_get()` or OpenBB SDK
+- Quarterly ratios/key-metrics return 402 (premium only); annual data used for valuation charts
+
 ## [2026-03-23] - Insider Trades in Stock Detail
 
 ### Added
