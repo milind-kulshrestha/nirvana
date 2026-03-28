@@ -1067,3 +1067,220 @@ def get_earnings(symbol: str) -> dict:
         logger.debug("Cache write failed for earnings %s", symbol)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Analyst Coverage (consensus + price targets + forward estimates)
+# ---------------------------------------------------------------------------
+
+def get_analyst_coverage(symbol: str) -> dict:
+    """
+    Fetch analyst coverage data combining consensus, price targets, and forward estimates.
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:analyst).
+    On miss, fetches from get_estimates() + two FMP endpoints and caches.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with 'consensus', 'price_targets', and 'forward_estimates'.
+    """
+    cache_key = f"{symbol.upper()}:analyst"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for analyst %s", symbol)
+
+    consensus = None
+    price_targets = None
+    forward_estimates = []
+
+    # --- 1. Consensus from existing get_estimates() ---
+    try:
+        est = get_estimates(symbol)
+        consensus = {
+            "consensus_type": est.get("consensus_type"),
+            "consensus_rating": est.get("consensus_rating"),
+            "target_price": est.get("target_price"),
+        }
+    except Exception as e:
+        logger.warning("Analyst consensus fetch failed for %s: %s", symbol, e)
+
+    # --- 2. Price target summary from FMP ---
+    try:
+        pts_data = _fmp_get("price-target-summary", {"symbol": symbol.upper()})
+        if isinstance(pts_data, list) and len(pts_data) > 0:
+            pts = pts_data[0]
+        elif isinstance(pts_data, dict):
+            pts = pts_data
+        else:
+            pts = {}
+        price_targets = {
+            "last_month_count": pts.get("lastMonthCount", 0),
+            "last_month_avg": pts.get("lastMonthAvgPriceTarget"),
+            "last_quarter_count": pts.get("lastQuarterCount", 0),
+            "last_quarter_avg": pts.get("lastQuarterAvgPriceTarget"),
+            "last_year_count": pts.get("lastYearCount", 0),
+            "last_year_avg": pts.get("lastYearAvgPriceTarget"),
+            "all_time_count": pts.get("allTimeCount", 0),
+            "all_time_avg": pts.get("allTimeAvgPriceTarget"),
+        }
+    except Exception as e:
+        logger.warning("Analyst price-target-summary fetch failed for %s: %s", symbol, e)
+
+    # --- 3. Forward analyst estimates from FMP ---
+    try:
+        ae_data = _fmp_get(
+            "analyst-estimates",
+            {"symbol": symbol.upper(), "period": "annual", "limit": 3},
+        )
+        if isinstance(ae_data, list):
+            for item in ae_data:
+                forward_estimates.append({
+                    "date": item.get("date", ""),
+                    "revenue_avg": item.get("revenueAvg"),
+                    "eps_avg": item.get("epsAvg"),
+                    "eps_low": item.get("epsLow"),
+                    "eps_high": item.get("epsHigh"),
+                    "num_analysts_revenue": item.get("numberOfAnalystsRevenue"),
+                    "num_analysts_eps": item.get("numberOfAnalystsEPS"),
+                })
+    except Exception as e:
+        logger.warning("Analyst forward estimates fetch failed for %s: %s", symbol, e)
+
+    result = {
+        "consensus": consensus,
+        "price_targets": price_targets,
+        "forward_estimates": forward_estimates,
+    }
+
+    # Cache with 24h TTL (reuses fundamentals table)
+    try:
+        from app.lib.market_cache import cache_fundamentals
+        cache_fundamentals(cache_key, result)
+    except Exception:
+        logger.debug("Cache write failed for analyst %s", symbol)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Analyst Coverage (consensus + price targets + forward estimates)
+# ---------------------------------------------------------------------------
+
+def get_analyst_coverage(symbol: str) -> dict:
+    """
+    Fetch analyst coverage data for symbol from multiple FMP endpoints.
+
+    Aggregates:
+      1. Consensus rating from get_estimates()
+      2. Price target summary from FMP price-target-summary
+      3. Forward analyst estimates from FMP analyst-estimates
+
+    Checks DuckDB fundamentals cache first (24h TTL, key: {SYMBOL}:analyst).
+    Each data source is fetched independently; partial data is OK.
+
+    Args:
+        symbol: Stock ticker symbol
+
+    Returns:
+        Dict with 'consensus', 'price_targets', and 'forward_estimates'.
+    """
+    cache_key = f"{symbol.upper()}:analyst"
+
+    # --- cache hit? ---
+    try:
+        from app.lib.market_cache import get_cached_fundamentals
+        cached = get_cached_fundamentals(cache_key)
+        if cached is not None:
+            return cached
+    except Exception:
+        logger.debug("Cache read failed for analyst coverage %s", symbol)
+
+    consensus = {
+        "consensus_type": None,
+        "consensus_rating": None,
+        "target_price": None,
+    }
+    price_targets = {
+        "last_month_count": None,
+        "last_month_avg": None,
+        "last_quarter_count": None,
+        "last_quarter_avg": None,
+        "last_year_count": None,
+        "last_year_avg": None,
+        "all_time_count": None,
+        "all_time_avg": None,
+    }
+    forward_estimates = []
+
+    # --- Source 1: Consensus from get_estimates() ---
+    try:
+        est = get_estimates(symbol)
+        consensus = {
+            "consensus_type": est.get("consensus_type"),
+            "consensus_rating": est.get("consensus_rating"),
+            "target_price": est.get("target_price"),
+        }
+    except Exception as e:
+        logger.warning("Analyst consensus fetch failed for %s: %s", symbol, e)
+
+    # --- Source 2: Price target summary from FMP ---
+    try:
+        pts_data = _fmp_get("price-target-summary", {"symbol": symbol.upper()})
+        pts = pts_data[0] if isinstance(pts_data, list) else pts_data
+        price_targets = {
+            "last_month_count": pts.get("lastMonthCount"),
+            "last_month_avg": pts.get("lastMonthAvgPriceTarget"),
+            "last_quarter_count": pts.get("lastQuarterCount"),
+            "last_quarter_avg": pts.get("lastQuarterAvgPriceTarget"),
+            "last_year_count": pts.get("lastYearCount"),
+            "last_year_avg": pts.get("lastYearAvgPriceTarget"),
+            "all_time_count": pts.get("allTimeCount"),
+            "all_time_avg": pts.get("allTimeAvgPriceTarget"),
+        }
+    except Exception as e:
+        logger.warning("Price target summary fetch failed for %s: %s", symbol, e)
+
+    # --- Source 3: Forward estimates from FMP analyst-estimates ---
+    try:
+        ae_data = _fmp_get(
+            "analyst-estimates",
+            {"symbol": symbol.upper(), "period": "annual", "limit": 3},
+        )
+        if isinstance(ae_data, list):
+            for item in ae_data:
+                forward_estimates.append({
+                    "date": item.get("date", ""),
+                    "revenue_avg": item.get("revenueAvg"),
+                    "revenue_low": item.get("revenueLow"),
+                    "revenue_high": item.get("revenueHigh"),
+                    "eps_avg": item.get("epsAvg"),
+                    "eps_low": item.get("epsLow"),
+                    "eps_high": item.get("epsHigh"),
+                    "num_analysts_revenue": item.get("numberOfAnalystsRevenue"),
+                    "num_analysts_eps": item.get("numberOfAnalystsEPS"),
+                })
+    except Exception as e:
+        logger.warning("Analyst forward estimates fetch failed for %s: %s", symbol, e)
+
+    result = {
+        "consensus": consensus,
+        "price_targets": price_targets,
+        "forward_estimates": forward_estimates,
+    }
+
+    # Cache with 24h TTL (reuses fundamentals table)
+    try:
+        from app.lib.market_cache import cache_fundamentals
+        cache_fundamentals(cache_key, result)
+    except Exception:
+        logger.debug("Cache write failed for analyst coverage %s", symbol)
+
+    return result
