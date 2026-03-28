@@ -6,6 +6,10 @@ import PerformanceTiles from './PerformanceTiles';
 import EstimatesBadge from './EstimatesBadge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import InsiderTrades from './InsiderTrades';
+import Fundamentals from './Fundamentals';
+import Earnings from './Earnings';
+import AnalystCoverage from './AnalystCoverage';
+import ValuationChart from './ValuationChart';
 import { API_BASE } from '../config';
 
 export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
@@ -19,9 +23,11 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
 
   const [expandedData, setExpandedData] = useState(null);
   const [expandedLoading, setExpandedLoading] = useState(false);
-  const [insiderData, setInsiderData] = useState(null);
-  const [insiderLoading, setInsiderLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('chart');
+
+  // Lazy-loaded tab data
+  const [tabData, setTabData] = useState({});
+  const [tabLoading, setTabLoading] = useState({});
 
   const serializeFn = useCallback(() => ({
     type: 'stock-quote',
@@ -61,24 +67,24 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
     fetchExpandedData();
   }, [isExpanded, item.symbol, expandedData]);
 
-  const fetchInsiderTrades = useCallback(async () => {
-    if (insiderData || insiderLoading) return;
-    setInsiderLoading(true);
+  const fetchTabData = useCallback(async (tabKey, endpoint) => {
+    if (tabData[tabKey] || tabLoading[tabKey]) return;
+    setTabLoading(prev => ({ ...prev, [tabKey]: true }));
     try {
       const response = await fetch(
-        `${API_BASE}/api/securities/${item.symbol}/insider-trades`,
+        `${API_BASE}/api/securities/${item.symbol}/${endpoint}`,
         { credentials: 'include' }
       );
       if (response.ok) {
         const data = await response.json();
-        setInsiderData(data);
+        setTabData(prev => ({ ...prev, [tabKey]: data }));
       }
     } catch (err) {
-      console.error(`Error fetching insider trades for ${item.symbol}:`, err);
+      console.error(`Error fetching ${endpoint} for ${item.symbol}:`, err);
     } finally {
-      setInsiderLoading(false);
+      setTabLoading(prev => ({ ...prev, [tabKey]: false }));
     }
-  }, [item.symbol, insiderData, insiderLoading]);
+  }, [item.symbol, tabData, tabLoading]);
 
   // Show loading state
   if (item.loading) {
@@ -226,13 +232,24 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
         <div className="border-t border-border p-4 space-y-4">
           <Tabs value={activeTab} onValueChange={(val) => {
             setActiveTab(val);
-            if (val === 'insider' && !insiderData && !insiderLoading) {
-              fetchInsiderTrades();
+            const endpoints = {
+              fundamentals: 'fundamentals',
+              earnings: 'earnings',
+              analyst: 'analyst',
+              valuation: 'valuation',
+              insider: 'insider-trades',
+            };
+            if (endpoints[val]) {
+              fetchTabData(val, endpoints[val]);
             }
           }}>
-            <TabsList>
+            <TabsList className="flex-wrap h-auto gap-1">
               <TabsTrigger value="chart">Chart</TabsTrigger>
-              <TabsTrigger value="insider">Insider Trades</TabsTrigger>
+              <TabsTrigger value="fundamentals">Fundamentals</TabsTrigger>
+              <TabsTrigger value="earnings">Earnings</TabsTrigger>
+              <TabsTrigger value="analyst">Analysts</TabsTrigger>
+              <TabsTrigger value="valuation">Valuation</TabsTrigger>
+              <TabsTrigger value="insider">Insiders</TabsTrigger>
             </TabsList>
 
             <TabsContent value="chart" className="mt-4">
@@ -248,13 +265,53 @@ export default function StockRow({ item, onRemove, onToggle, isExpanded }) {
               )}
             </TabsContent>
 
+            <TabsContent value="fundamentals" className="mt-4">
+              {tabLoading.fundamentals ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-muted-foreground">Loading fundamentals...</div>
+                </div>
+              ) : (
+                <Fundamentals data={tabData.fundamentals} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="earnings" className="mt-4">
+              {tabLoading.earnings ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-muted-foreground">Loading earnings...</div>
+                </div>
+              ) : (
+                <Earnings data={tabData.earnings} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="analyst" className="mt-4">
+              {tabLoading.analyst ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-muted-foreground">Loading analyst coverage...</div>
+                </div>
+              ) : (
+                <AnalystCoverage data={tabData.analyst} currentPrice={price} />
+              )}
+            </TabsContent>
+
+            <TabsContent value="valuation" className="mt-4">
+              {tabLoading.valuation ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-muted-foreground">Loading valuation data...</div>
+                </div>
+              ) : (
+                <ValuationChart data={tabData.valuation} />
+              )}
+            </TabsContent>
+
             <TabsContent value="insider" className="mt-4">
-              {insiderLoading ? (
+              {tabLoading.insider ? (
                 <div className="flex items-center justify-center h-32">
                   <div className="text-muted-foreground">Loading insider trades...</div>
                 </div>
               ) : (
-                <InsiderTrades data={insiderData} />
+                <InsiderTrades data={tabData.insider} />
               )}
             </TabsContent>
           </Tabs>
