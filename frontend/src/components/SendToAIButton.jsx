@@ -1,9 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import useChatStore from '../stores/chatStore';
 import useAIContextStore from '../stores/aiContextStore';
 
 export default function SendToAIButton({ componentId, label = 'Ask AI' }) {
-  const { openSidebar, sendMessage } = useChatStore();
+  const { sendMessage } = useChatStore();
   const captureComponent = useAIContextStore((s) => s.captureComponent);
+  const navigate = useNavigate();
 
   const handleClick = async (e) => {
     e.stopPropagation();
@@ -12,8 +14,8 @@ export default function SendToAIButton({ componentId, label = 'Ask AI' }) {
     const context = await captureComponent(componentId);
     if (!context) return;
 
-    // Open sidebar and send with context
-    openSidebar();
+    // Navigate to Agent Hub and send with context
+    navigate('/');
     await sendMessage(
       `Analyze this ${context.data?.type || 'component'}`,
       context,
@@ -23,7 +25,7 @@ export default function SendToAIButton({ componentId, label = 'Ask AI' }) {
   return (
     <button
       onClick={handleClick}
-      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 rounded-full px-2 py-0.5 shadow-sm transition"
+      className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 bg-background hover:bg-primary/5 border border-primary/20 rounded-full px-2 py-0.5 shadow-sm transition-colors duration-fast"
       title={label}
     >
       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

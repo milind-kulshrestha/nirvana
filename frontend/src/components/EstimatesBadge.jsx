@@ -4,11 +4,11 @@ export default function EstimatesBadge({ estimates, currentPrice }) {
   const type = estimates.consensus_type.toLowerCase();
 
   const colorMap = {
-    'strong_buy': 'bg-green-100 text-green-800',
-    'buy': 'bg-green-100 text-green-700',
-    'hold': 'bg-yellow-100 text-yellow-800',
-    'sell': 'bg-red-100 text-red-700',
-    'strong_sell': 'bg-red-100 text-red-800',
+    'strong_buy': 'bg-success/15 text-success',
+    'buy': 'bg-success/10 text-success',
+    'hold': 'bg-warning/10 text-warning',
+    'sell': 'bg-destructive/10 text-destructive',
+    'strong_sell': 'bg-destructive/15 text-destructive',
   };
 
   const labelMap = {
@@ -19,7 +19,7 @@ export default function EstimatesBadge({ estimates, currentPrice }) {
     'strong_sell': 'Strong Sell',
   };
 
-  const color = colorMap[type] || 'bg-gray-100 text-gray-700';
+  const color = colorMap[type] || 'bg-muted text-muted-foreground';
   const label = labelMap[type] || estimates.consensus_type;
 
   let targetDelta = null;
@@ -30,12 +30,12 @@ export default function EstimatesBadge({ estimates, currentPrice }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded ${color}`}
+      className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${color}`}
       title={estimates.target_price ? `Target: $${estimates.target_price.toFixed(2)}` : undefined}
     >
       {label}
       {targetDelta && (
-        <span className="opacity-70">({targetDelta})</span>
+        <span className="opacity-70 font-mono">({targetDelta})</span>
       )}
     </span>
   );

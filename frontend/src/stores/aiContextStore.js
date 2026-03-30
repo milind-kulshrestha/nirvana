@@ -1,6 +1,23 @@
 import { create } from 'zustand';
 
 const useAIContextStore = create((set, get) => ({
+  // Attached context chips for the compose bar
+  // Each: { id, type: 'watchlist'|'etf'|'stock'|'dataset', label, data }
+  attachedContexts: [],
+
+  attachContext: (item) =>
+    set((s) => {
+      if (s.attachedContexts.some((c) => c.id === item.id)) return s;
+      return { attachedContexts: [...s.attachedContexts, item] };
+    }),
+
+  detachContext: (id) =>
+    set((s) => ({
+      attachedContexts: s.attachedContexts.filter((c) => c.id !== id),
+    })),
+
+  clearContexts: () => set({ attachedContexts: [] }),
+
   // Registry of AI-sendable components
   registeredComponents: {},
 

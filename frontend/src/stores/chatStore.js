@@ -10,13 +10,7 @@ const useChatStore = create((set, get) => ({
   pendingActions: [],
   tokenUsage: null,
   error: null,
-  sidebarOpen: true,
   selectedModel: localStorage.getItem('nirvana_selected_model') || 'anthropic/claude-sonnet-4-6',
-
-  // Sidebar
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-  openSidebar: () => set({ sidebarOpen: true }),
-  closeSidebar: () => set({ sidebarOpen: false }),
 
   // Model selection
   setSelectedModel: (model) => {

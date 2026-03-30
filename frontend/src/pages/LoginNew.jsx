@@ -17,7 +17,7 @@ export default function LoginNew() {
   // Auto-redirect if already authenticated (e.g. single-user mode)
   useEffect(() => {
     if (user) {
-      navigate('/watchlists', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [user, navigate]);
 
@@ -30,7 +30,7 @@ export default function LoginNew() {
       : await register(email, password);
 
     if (success) {
-      navigate('/watchlists');
+      navigate('/');
     }
   };
 

@@ -6,6 +6,35 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [Unreleased]
 
+## [2026-03-29] - Agent-Native UI Redesign
+
+### Added
+- **AppShell layout** — New `layout/AppShell.jsx` with `LeftSidebar`, `RightRail`, `TopBar`, `ComposeBar` replacing the old floating sidebar pattern
+- **Agent Hub** — New `/` home page (`AgentHub.jsx`) as the AI agent workspace with canvas and compose bar
+- **Canvas system** — `canvas/CanvasBlock.jsx`, `CanvasStream.jsx`, `WelcomeState.jsx` + `canvasStore.js` for agent-generated artifact blocks
+- **Chat rearchitecture** — `chat/ChatMessageList.jsx` in dedicated directory; compose bar moved to layout shell
+- **Right rail panels** — `rightrail/RunSteps.jsx`, `SkillsPalette.jsx`, `SourcesPanel.jsx` for agent workflow visibility
+- **Context chips** — `topbar/ContextChipPicker.jsx` + `ContextChips.jsx` for attaching watchlists/stocks/datasets to prompts; `attachedContexts` state in `aiContextStore.js`
+- **Command palette** — `CommandPalette.jsx` with keyboard shortcut support (`useKeyboardShortcuts.js` hook)
+- **Error boundary** — `ErrorBoundary.jsx` wraps page content in AppShell
+- **Layout store** — `layoutStore.js` (Zustand) for panel visibility state
+- **Design system overhaul** — Apple-inspired color palette (blue primary `#0071e3`, system red, success green, warning orange), SF system fonts, semantic CSS variables, `fade-in-up` animation, `success`/`warning` Tailwind color tokens
+
+### Changed
+- **App.jsx** — Split into `App` (startup/auth) + `AuthenticatedApp` (onboarding + AppShell); routes render inside `<Outlet>` within AppShell
+- **Routing** — Login moved to `/login`; home `/` is now AgentHub; unauthenticated redirect targets `/login`
+- **shadcn/ui components** — `badge.jsx`, `button.jsx`, `card.jsx`, `dialog.jsx`, `input.jsx`, `skeleton.jsx` updated with refined styling
+- **Page restyling** — `Discover.jsx`, `ETFDashboard.jsx`, `Settings.jsx`, `WatchlistDetail.jsx`, `WatchlistsNew.jsx` simplified and restyled
+- **Tailwind config** — System font stacks, transition durations/easings, `success`/`warning` color tokens, `fade-in-up` keyframes
+- **index.css** — Full CSS variable overhaul for light and dark themes with semantic naming
+
+### Removed
+- **`AISidebar.jsx`** — Replaced by AppShell layout with canvas + compose bar
+- **`AIToggleButton.jsx`** — No longer needed; agent is always accessible via AppShell
+- **`App.css`** — Styles moved to index.css / Tailwind
+- **`Login.jsx`** — Superseded by `LoginNew.jsx`
+- **`Watchlists.jsx`** — Superseded by `WatchlistsNew.jsx`
+
 ## [2026-03-28] - Stock Detail Tabs Expansion
 
 ### Added

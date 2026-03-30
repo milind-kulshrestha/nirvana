@@ -85,8 +85,8 @@ export default function OnboardingWizard({ missingKeys, onComplete }) {
               ))}
             </div>
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="h-16 w-16 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-success" />
               </div>
             </div>
             <CardTitle className="text-2xl">You're All Set!</CardTitle>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Eye, EyeOff, CheckCircle, XCircle, Loader2, Settings as SettingsIcon } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { API_BASE } from '../config';
 
 const REFRESH_INTERVALS = [
@@ -18,7 +17,6 @@ const REFRESH_INTERVALS = [
 ];
 
 export default function Settings() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -181,7 +179,7 @@ export default function Settings() {
     }
     if (status === 'success') {
       return (
-        <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
+        <Badge variant="success" className="gap-1">
           <CheckCircle className="h-3 w-3" />
           Valid
         </Badge>
@@ -212,19 +210,6 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/watchlists')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <SettingsIcon className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-          </div>
-        </div>
-      </header>
-
       <main className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
         {/* API Keys Section */}
         <Card>
@@ -335,7 +320,7 @@ export default function Settings() {
                 id="default-model"
                 value={defaultModel}
                 onChange={(e) => setDefaultModel(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm shadow-sm transition-all duration-fast focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
               >
                 {availableModels.map((m) => (
                   <option key={m.id} value={m.id}>{m.display_name} ({m.provider})</option>
@@ -446,7 +431,7 @@ export default function Settings() {
                 id="refresh-interval"
                 value={refreshInterval}
                 onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-4 py-3 text-sm shadow-sm transition-all duration-fast focus-visible:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20"
               >
                 {REFRESH_INTERVALS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -527,7 +512,7 @@ export default function Settings() {
         {/* Save Button */}
         <div className="flex items-center justify-end gap-3">
           {saved && (
-            <span className="text-sm text-green-600 flex items-center gap-1">
+            <span className="text-sm text-success flex items-center gap-1">
               <CheckCircle className="h-4 w-4" />
               Settings saved
             </span>

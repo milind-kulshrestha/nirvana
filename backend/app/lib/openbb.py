@@ -102,9 +102,12 @@ def get_quote(symbol: str) -> dict:
     except (SymbolNotFoundError, OpenBBTimeoutError):
         raise
     except Exception as e:
-        if "timeout" in str(e).lower():
+        err_msg = str(e).lower()
+        if "timeout" in err_msg or "timed out" in err_msg:
             raise OpenBBTimeoutError(f"Timeout fetching data for {symbol}")
-        raise SymbolNotFoundError(f"Error fetching {symbol}: {str(e)}")
+        if "not found" in err_msg or "no data" in err_msg or "invalid" in err_msg:
+            raise SymbolNotFoundError(f"Symbol {symbol} not found")
+        raise OpenBBTimeoutError(f"API error fetching {symbol}: {str(e)}")
 
 
 def get_ma_200(symbol: str) -> float | None:

@@ -21,11 +21,11 @@ export default function PerformanceTiles({ performance, compact = false }) {
   };
 
   const getColor = (value) => {
-    if (value == null) return 'bg-gray-100 text-gray-500';
-    if (value > 0.05) return 'bg-green-100 text-green-800';
-    if (value > 0) return 'bg-green-50 text-green-700';
-    if (value > -0.05) return 'bg-red-50 text-red-700';
-    return 'bg-red-100 text-red-800';
+    if (value == null) return 'bg-muted text-muted-foreground';
+    if (value > 0.05) return 'bg-success/15 text-success';
+    if (value > 0) return 'bg-success/10 text-success';
+    if (value > -0.05) return 'bg-destructive/10 text-destructive';
+    return 'bg-destructive/15 text-destructive';
   };
 
   if (compact) {
@@ -36,10 +36,10 @@ export default function PerformanceTiles({ performance, compact = false }) {
           return (
             <span
               key={key}
-              className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded ${getColor(value)}`}
+              className={`inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-full ${getColor(value)}`}
             >
               <span className="font-medium opacity-70">{label}</span>
-              <span className="font-semibold">{formatReturn(value)}</span>
+              <span className="font-semibold font-mono">{formatReturn(value)}</span>
             </span>
           );
         })}
@@ -49,17 +49,17 @@ export default function PerformanceTiles({ performance, compact = false }) {
 
   return (
     <div>
-      <h4 className="text-sm font-medium text-gray-500 mb-2">Performance</h4>
+      <h4 className="text-sm font-medium text-muted-foreground mb-2">Performance</h4>
       <div className="flex flex-wrap gap-2">
         {activePeriods.map(({ key, label }) => {
           const value = performance[key];
           return (
             <div
               key={key}
-              className={`px-3 py-1.5 rounded-md text-center min-w-[60px] ${getColor(value)}`}
+              className={`px-3 py-1.5 rounded-lg text-center min-w-[60px] ${getColor(value)}`}
             >
               <div className="text-[10px] font-medium opacity-70">{label}</div>
-              <div className="text-sm font-semibold">{formatReturn(value)}</div>
+              <div className="text-sm font-semibold font-mono">{formatReturn(value)}</div>
             </div>
           );
         })}

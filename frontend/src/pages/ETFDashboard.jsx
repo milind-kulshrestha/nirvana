@@ -1,22 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '../stores/authStore';
 import useEtfStore from '../stores/etfStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { RefreshCw, Plus, X, TrendingUp, Settings, Compass, BarChart2 } from 'lucide-react';
+import { RefreshCw, Plus, X, BarChart2 } from 'lucide-react';
 import { API_BASE } from '../config';
 
 // --- ABC Rating badge ---
 function AbcBadge({ rating }) {
   if (!rating) return <span className="text-muted-foreground">—</span>;
-  const colors = { A: 'bg-blue-500', B: 'bg-green-500', C: 'bg-amber-500' };
+  const colors = { A: 'bg-primary', B: 'bg-success', C: 'bg-warning' };
   return (
-    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold ${colors[rating] ?? 'bg-gray-500'}`}>
+    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-xs font-bold ${colors[rating] ?? 'bg-muted-foreground'}`}>
       {rating}
     </span>
   );
@@ -31,10 +27,10 @@ function BarCell({ value, range, decimals = 2 }) {
   return (
     <span className="relative inline-block min-w-[48px] text-right px-1">
       <span
-        className={`absolute top-0 h-full rounded opacity-20 z-0 ${positive ? 'bg-green-500 left-0' : 'bg-red-500 right-0'}`}
+        className={`absolute top-0 h-full rounded opacity-20 z-0 ${positive ? 'bg-success left-0' : 'bg-destructive right-0'}`}
         style={{ width: `${pct}%` }}
       />
-      <span className={`relative z-10 font-medium ${positive ? 'text-green-500' : 'text-red-500'}`}>
+      <span className={`relative z-10 font-medium font-mono ${positive ? 'text-success' : 'text-destructive'}`}>
         {value.toFixed(decimals)}%
       </span>
     </span>
@@ -60,7 +56,7 @@ function RsSparkline({ data }) {
             y={h / 2 - (v >= 0 ? barH : 0)}
             width={3}
             height={barH || 1}
-            fill={i === maxIdx ? '#4ade80' : '#9ca3af'}
+            fill={i === maxIdx ? '#34c759' : '#a6a6a6'}
             opacity={0.8}
           />
         );
@@ -195,7 +191,10 @@ function ETFTable({ rows, ranges }) {
         <tbody>
           {sorted.map((row) => (
             <tr key={row.ticker} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-              <td className="px-2 py-1.5 font-mono font-semibold whitespace-nowrap">{row.ticker}</td>
+              <td className="px-2 py-1.5">
+                <div className="font-mono font-semibold whitespace-nowrap">{row.ticker}</div>
+                {row.name && <div className="text-xs text-muted-foreground truncate max-w-[200px]">{row.name}</div>}
+              </td>
               <td className="px-2 py-1.5"><AbcBadge rating={row.abc} /></td>
               <td className="px-2 py-1.5"><BarCell value={row.daily} range={ranges?.daily} /></td>
               <td className="px-2 py-1.5"><BarCell value={row.intra} range={ranges?.intra} /></td>
@@ -206,8 +205,8 @@ function ETFTable({ rows, ranges }) {
               <td className="px-2 py-1.5 text-muted-foreground">{row.rs != null ? Math.round(row.rs) : '—'}</td>
               <td className="px-2 py-1.5"><RsSparkline data={row.rrs_chart} /></td>
               <td className="px-2 py-1.5 whitespace-nowrap">
-                {(row.long ?? []).map(s => <span key={s} className="text-green-500 text-xs mr-1">{s}</span>)}
-                {(row.short ?? []).map(s => <span key={s} className="text-red-400 text-xs mr-1">{s}</span>)}
+                {(row.long ?? []).map(s => <span key={s} className="text-success text-xs mr-1 font-mono">{s}</span>)}
+                {(row.short ?? []).map(s => <span key={s} className="text-destructive text-xs mr-1 font-mono">{s}</span>)}
               </td>
               <td className="px-2 py-1.5"><HoldingsPopover symbol={row.ticker} /></td>
             </tr>
@@ -222,8 +221,6 @@ function ETFTable({ rows, ranges }) {
 const GROUP_ORDER = ['Indices', 'S&P Style', 'Sel Sectors', 'EW Sectors', 'Industries', 'Countries', 'Custom'];
 
 export default function ETFDashboard() {
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
   const {
     snapshot, status, progress, customSymbols,
     fetchSnapshot, fetchCustomSymbols, startRefresh,
@@ -249,23 +246,11 @@ export default function ETFDashboard() {
     setNewSymbol('');
   };
 
-  const handleLogout = async () => { await logout(); navigate('/'); };
-
   return (
     <div className="flex flex-col h-screen bg-background">
-      {/* Nav */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <div className="flex items-center gap-4">
-          <Link to="/watchlists" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <TrendingUp className="h-4 w-4" /> Watchlists
-          </Link>
-          <Link to="/discover" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <Compass className="h-4 w-4" /> Discover
-          </Link>
-          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-            <BarChart2 className="h-4 w-4" /> ETF Dashboard
-          </span>
-        </div>
+      {/* Page toolbar */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <h1 className="text-lg font-semibold text-foreground">ETF Dashboard</h1>
         <div className="flex items-center gap-3">
           {snapshot?.built_at && (
             <span className="text-xs text-muted-foreground hidden sm:block">
@@ -284,25 +269,8 @@ export default function ETFDashboard() {
               ? `${progress.done}/${progress.total || '…'}`
               : 'Refresh'}
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
-                <Avatar className="h-7 w-7">
-                  <AvatarFallback className="text-xs">{user?.email?.[0]?.toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{user?.email}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="h-3.5 w-3.5 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>Sign Out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
-      </header>
+      </div>
 
       {/* Progress bar */}
       {status === 'refreshing' && (

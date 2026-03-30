@@ -43,19 +43,19 @@ export default function CalendarWidget({ watchlistSymbols = [], filterMode = 'mi
     <div>
       {/* Tab + Filter controls */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex gap-0.5 bg-muted rounded-lg p-1">
           <button
             onClick={() => setTab('earnings')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              tab === 'earnings' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-fast ${
+              tab === 'earnings' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Earnings
           </button>
           <button
             onClick={() => setTab('dividends')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-              tab === 'dividends' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-fast ${
+              tab === 'dividends' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Dividends
@@ -63,19 +63,19 @@ export default function CalendarWidget({ watchlistSymbols = [], filterMode = 'mi
         </div>
 
         {watchlistSymbols.length > 0 && (
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex gap-0.5 bg-muted rounded-lg p-1">
             <button
               onClick={() => setFilter('mine')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                filter === 'mine' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-fast ${
+                filter === 'mine' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
               }`}
             >
               My Stocks
             </button>
             <button
               onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                filter === 'all' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-fast ${
+                filter === 'all' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
               }`}
             >
               All
@@ -88,11 +88,11 @@ export default function CalendarWidget({ watchlistSymbols = [], filterMode = 'mi
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+            <div key={i} className="h-12 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="text-center py-8 text-gray-500 text-sm">
+        <div className="text-center py-8 text-muted-foreground text-sm">
           {filter === 'mine' ? 'No upcoming events for your watchlist stocks' : 'No upcoming events'}
         </div>
       ) : (
@@ -104,25 +104,25 @@ export default function CalendarWidget({ watchlistSymbols = [], filterMode = 'mi
             return (
               <div
                 key={`${event.symbol}-${idx}`}
-                className={`flex items-center justify-between p-3 rounded-lg border ${
-                  isWatchlist ? 'border-indigo-200 bg-indigo-50/50' : 'border-gray-200 bg-white'
+                className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-fast ${
+                  isWatchlist ? 'border-primary/20 bg-primary/5' : 'border-border bg-card'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="font-semibold text-sm text-gray-900 w-16">{event.symbol}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="font-semibold text-sm text-foreground w-16 font-mono">{event.symbol}</div>
+                  <div className="text-xs text-muted-foreground">
                     {event.name && <span className="mr-2">{event.name}</span>}
                     {event.date || event.ex_dividend_date}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {tab === 'earnings' && event.eps_estimated != null && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground font-mono">
                       Est. ${event.eps_estimated.toFixed(2)}
                     </span>
                   )}
                   {tab === 'dividends' && event.dividend != null && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted-foreground font-mono">
                       ${event.dividend.toFixed(4)}
                     </span>
                   )}

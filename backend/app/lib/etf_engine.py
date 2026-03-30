@@ -221,6 +221,14 @@ def fetch_etf_row(symbol: str, group_name: str) -> dict | None:
         dist    = round(100 * (current / sma50 - 1) / atr_pct, 2) if (sma50 and atr_pct and atr_pct != 0) else None
         abc     = calculate_abc_rating(hist_60)
 
+        # Fetch ETF name from info
+        name = None
+        try:
+            info = stock.info or {}
+            name = info.get("longName") or info.get("shortName")
+        except Exception:
+            pass
+
         rrs_df  = None
         rs_sts  = None
         try:
@@ -241,6 +249,7 @@ def fetch_etf_row(symbol: str, group_name: str) -> dict | None:
 
         return {
             "symbol":         symbol.upper(),
+            "name":           name,
             "group_name":     group_name,
             "daily":          round(daily, 2),
             "intra":          round(intra, 2),

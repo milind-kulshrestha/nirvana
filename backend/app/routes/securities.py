@@ -100,11 +100,13 @@ async def get_security(symbol: str, include: str = "quote,ma200,history"):
                 quote_data = get_quote(symbol)
                 response_data["quote"] = QuoteData(**quote_data)
                 has_data = True
-            except (SymbolNotFoundError, OpenBBTimeoutError) as e:
+            except SymbolNotFoundError as e:
                 logger.warning(f"Quote fetch failed for {symbol}: {e}")
-                # If quote fails, we should return 404 as symbol likely invalid
                 if not has_data:
                     raise HTTPException(status_code=404, detail=f"Symbol {symbol} not found")
+            except OpenBBTimeoutError as e:
+                logger.warning(f"Quote fetch timed out for {symbol}: {e}")
+                # Don't 404 on timeout — symbol may be valid but API is slow
 
         # Calculate 200-day MA (optional, returns None if insufficient data)
         if "ma200" in include_parts:

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '../stores/authStore';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -9,9 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Plus, TrendingUp, Trash2, User, Settings, BarChart2 } from 'lucide-react';
+import { Plus, TrendingUp, Trash2 } from 'lucide-react';
 import { API_BASE } from '../config';
 
 export default function WatchlistsNew() {
@@ -19,9 +16,6 @@ export default function WatchlistsNew() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newWatchlistName, setNewWatchlistName] = useState('');
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
-
   useEffect(() => {
     fetchWatchlists();
   }, []);
@@ -79,113 +73,29 @@ export default function WatchlistsNew() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
-  const getInitials = (email) => {
-    return email ? email.substring(0, 2).toUpperCase() : 'U';
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        {/* Header Skeleton */}
-        <header className="border-b">
-          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-10 w-10 rounded-full" />
-          </div>
-        </header>
-
-        {/* Content Skeleton */}
-        <main className="container mx-auto px-4 py-8">
-          <Skeleton className="h-10 w-40 mb-6" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i}>
-                <CardHeader>
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-24 mt-2" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-20" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </main>
+      <div className="container mx-auto px-4 py-8">
+        <Skeleton className="h-10 w-40 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-32" />
+                <Skeleton className="h-4 w-24 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <TrendingUp className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">My Watchlists</h1>
-            </div>
-            <nav className="hidden sm:flex items-center gap-1 text-sm">
-              <span className="px-3 py-1.5 rounded-md bg-accent text-foreground font-medium">
-                Watchlists
-              </span>
-              <Link
-                to="/discover"
-                className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
-              >
-                Discover
-              </Link>
-              <Link
-                to="/etf"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
-              >
-                <BarChart2 className="h-4 w-4" /> ETF
-              </Link>
-            </nav>
-          </div>
-
-          {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className="relative h-10 w-10 rounded-full"
-                aria-label="User menu"
-              >
-                <Avatar>
-                  <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">My Account</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user?.email}
-                  </p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Create Button */}
         <div className="flex items-center justify-between mb-6">
@@ -280,6 +190,7 @@ export default function WatchlistsNew() {
                         className="opacity-0 group-hover:opacity-100 transition-opacity -mt-2 -mr-2"
                         onClick={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           deleteWatchlist(watchlist.id, watchlist.name);
                         }}
                       >

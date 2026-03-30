@@ -1,20 +1,23 @@
 # Project Status
 
-**Last Updated:** 2026-03-28
+**Last Updated:** 2026-03-29
 
-## Current Status: Stock Detail Tabs Expansion Complete
+## Current Status: Agent-Native UI Redesign (In Progress)
 
-Nirvana's stock detail panel now features 6 tabs of rich data: Chart, Fundamentals, Earnings, Analysts, Valuation, and Insiders. All tabs lazy-load on selection with 24h DuckDB caching.
+Nirvana is transitioning to an agent-native interface where the AI agent is the primary interaction surface. The new AppShell layout replaces the floating sidebar with a canvas-based workspace, compose bar, and contextual right rail.
 
-### Latest Accomplishments (2026-03-28)
-- ✅ **Fundamentals tab** — Company profile (description, sector, CEO, website) + 12-metric grid (market cap, P/E, EV/EBITDA, ROE, ROA, ROIC, etc.) from FMP profile + key-metrics
-- ✅ **Earnings tab** — Quarterly EPS bar chart (5 quarters, color-coded) + forward analyst estimates table (3 years of revenue/EPS/EBITDA projections)
-- ✅ **Analyst Coverage tab** — Consensus rating badge (color-coded), average price target with upside %, analyst activity stats, forward estimates with analyst counts
-- ✅ **Valuation tab** — 5-year historical P/E, P/S, P/B, EV/EBITDA line charts from FMP annual ratios + key-metrics
-- ✅ **`_fmp_get()` helper** — Direct FMP stable API calls with config-based API key, 402/timeout error handling; replaces OpenBB wrappers for fundamental data (more reliable results)
-- ✅ **StockRow refactor** — Generic `fetchTabData` helper replaces per-tab fetch functions; TabsList wraps on mobile
-- ✅ **Graceful degradation** — Endpoints return partial data for ETFs/symbols with missing metrics instead of 500 errors
-- ✅ **Dead code cleanup** — Removed unused `StockAnalytics.jsx` and `PriceChart.jsx`
+### Latest Accomplishments (2026-03-29)
+- ✅ **AppShell layout** — `LeftSidebar` + `RightRail` + `TopBar` + `ComposeBar` replaces old floating `AISidebar`/`AIToggleButton` pattern
+- ✅ **Agent Hub** — New home page (`/`) as the AI agent workspace with canvas for streaming artifacts
+- ✅ **Canvas system** — `CanvasBlock`, `CanvasStream`, `WelcomeState` components + `canvasStore.js` for agent-generated content
+- ✅ **Right rail** — `RunSteps`, `SkillsPalette`, `SourcesPanel` panels for agent workflow visibility
+- ✅ **Context chips** — Attach watchlists/stocks/datasets to prompts via `ContextChipPicker` in topbar
+- ✅ **Command palette** — Keyboard-accessible command launcher with shortcuts
+- ✅ **Design system overhaul** — Apple-inspired palette, SF system fonts, semantic CSS variables, transitions/animations
+- ✅ **Dead code cleanup** — Removed `AISidebar`, `AIToggleButton`, `App.css`, old `Login.jsx`, old `Watchlists.jsx`
+
+### Previous Accomplishments (2026-03-28)
+- ✅ **Stock Detail Tabs Expansion** — 6 tabs (Chart, Fundamentals, Earnings, Analysts, Valuation, Insiders) with lazy loading and 24h DuckDB caching
 
 ### Previous Accomplishments (2026-03-23)
 - ✅ **Insider Trades in Stock Detail** — "Insiders" tab in StockRow expanded panel

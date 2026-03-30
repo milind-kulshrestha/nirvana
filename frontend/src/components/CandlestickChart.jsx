@@ -42,22 +42,22 @@ export default function CandlestickChart({ symbol, ohlcv }) {
       width: container.clientWidth,
       height: 320,
       layout: {
-        background: { color: '#ffffff' },
-        textColor: '#6b7280',
+        background: { color: 'transparent' },
+        textColor: '#7a7a7a',
         fontSize: 12,
       },
       grid: {
-        vertLines: { color: '#f3f4f6' },
-        horzLines: { color: '#f3f4f6' },
+        vertLines: { color: '#e8e8e8' },
+        horzLines: { color: '#e8e8e8' },
       },
       crosshair: {
         mode: 0,
       },
       rightPriceScale: {
-        borderColor: '#e5e7eb',
+        borderColor: '#e8e8e8',
       },
       timeScale: {
-        borderColor: '#e5e7eb',
+        borderColor: '#e8e8e8',
         timeVisible: false,
       },
     });
@@ -82,25 +82,25 @@ export default function CandlestickChart({ symbol, ohlcv }) {
     // Add price series based on chart type
     if (chartType === 'candlestick') {
       const series = chart.addSeries(CandlestickSeries, {
-        upColor: '#10b981',
-        downColor: '#ef4444',
-        borderUpColor: '#10b981',
-        borderDownColor: '#ef4444',
-        wickUpColor: '#10b981',
-        wickDownColor: '#ef4444',
+        upColor: '#34c759',
+        downColor: '#ff3b30',
+        borderUpColor: '#34c759',
+        borderDownColor: '#ff3b30',
+        wickUpColor: '#34c759',
+        wickDownColor: '#ff3b30',
       });
       series.setData(candleData);
     } else if (chartType === 'line') {
       const series = chart.addSeries(LineSeries, {
-        color: '#6366f1',
+        color: '#0071e3',
         lineWidth: 2,
       });
       series.setData(lineData);
     } else if (chartType === 'area') {
       const series = chart.addSeries(AreaSeries, {
-        topColor: 'rgba(99, 102, 241, 0.4)',
-        bottomColor: 'rgba(99, 102, 241, 0.05)',
-        lineColor: '#6366f1',
+        topColor: 'rgba(0, 113, 227, 0.3)',
+        bottomColor: 'rgba(0, 113, 227, 0.05)',
+        lineColor: '#0071e3',
         lineWidth: 2,
       });
       series.setData(lineData);
@@ -121,7 +121,7 @@ export default function CandlestickChart({ symbol, ohlcv }) {
       .map((d) => ({
         time: d.date,
         value: d.volume,
-        color: d.close >= d.open ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+        color: d.close >= d.open ? 'rgba(52, 199, 89, 0.3)' : 'rgba(255, 59, 48, 0.3)',
       }));
 
     volumeSeries.setData(volumeData);
@@ -146,32 +146,32 @@ export default function CandlestickChart({ symbol, ohlcv }) {
 
   if (!ohlcv || ohlcv.length === 0) {
     return (
-      <div className="bg-white rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{symbol} Chart</h3>
+      <div className="bg-card rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-foreground mb-4">{symbol} Chart</h3>
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">No chart data available</div>
+          <div className="text-muted-foreground">No chart data available</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={aiRef} className="bg-white rounded-lg p-6">
+    <div ref={aiRef} className="bg-card rounded-lg p-4">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>
-          <p className="text-sm text-gray-500">1-Year OHLCV</p>
+          <h3 className="text-lg font-semibold text-foreground">{symbol}</h3>
+          <p className="text-sm text-muted-foreground">1-Year OHLCV</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 bg-gray-100 rounded-md p-0.5">
+          <div className="flex gap-0.5 bg-muted rounded-lg p-0.5">
             {CHART_TYPES.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setChartType(t.key)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors duration-fast ${
                   chartType === t.key
-                    ? 'bg-white shadow-sm text-gray-900'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-background shadow-sm text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {t.label}
@@ -189,7 +189,7 @@ export default function CandlestickChart({ symbol, ohlcv }) {
           href="https://www.tradingview.com/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-gray-400 hover:text-gray-500"
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors duration-fast"
         >
           Charting by TradingView
         </a>

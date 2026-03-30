@@ -79,6 +79,7 @@ def _init_tables(conn: duckdb.DuckDBPyConnection) -> None:
     conn.execute("""
         CREATE TABLE IF NOT EXISTS etf_snapshot (
             symbol          VARCHAR NOT NULL,
+            name            VARCHAR,
             group_name      VARCHAR NOT NULL,
             built_at        TIMESTAMP NOT NULL,
             daily           DOUBLE,
@@ -94,6 +95,12 @@ def _init_tables(conn: duckdb.DuckDBPyConnection) -> None:
             rrs_chart       VARCHAR
         )
     """)
+
+    # Add name column if it doesn't exist (for existing tables)
+    try:
+        conn.execute("ALTER TABLE etf_snapshot ADD COLUMN name VARCHAR")
+    except Exception:
+        pass  # Column already exists
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS etf_holdings (
@@ -278,12 +285,13 @@ def save_etf_snapshot(rows: list[dict], built_at) -> None:
                 conn.execute(
                     """
                     INSERT INTO etf_snapshot
-                        (symbol, group_name, built_at, daily, intra, d5, d20,
+                        (symbol, name, group_name, built_at, daily, intra, d5, d20,
                          atr_pct, dist_sma50_atr, rs, abc, long_etfs, short_etfs, rrs_chart)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     [
                         row["symbol"].upper(),
+                        row.get("name"),
                         row["group_name"],
                         built_at,
                         row.get("daily"),
@@ -310,7 +318,7 @@ def get_etf_snapshot() -> dict | None:
     conn = _get_connection()
     rows = conn.execute(
         """
-        SELECT symbol, group_name, built_at, daily, intra, d5, d20,
+        SELECT symbol, name, group_name, built_at, daily, intra, d5, d20,
                atr_pct, dist_sma50_atr, rs, abc, long_etfs, short_etfs, rrs_chart
         FROM etf_snapshot
         ORDER BY group_name, symbol
@@ -320,14 +328,15 @@ def get_etf_snapshot() -> dict | None:
     if not rows:
         return None
 
-    built_at = rows[0][2]
+    built_at = rows[0][3]
     groups: dict[str, list] = {}
     col_ranges: dict[str, dict] = {}
 
     for row in rows:
-        sym, grp, _, daily, intra, d5, d20, atr_pct, dist, rs, abc, longs, shorts, chart = row
+        sym, name, grp, _, daily, intra, d5, d20, atr_pct, dist, rs, abc, longs, shorts, chart = row
         item = {
             "ticker": sym,
+            "name": name,
             "daily": daily, "intra": intra, "5d": d5, "20d": d20,
             "atr_pct": atr_pct, "dist_sma50_atr": dist,
             "rs": rs, "abc": abc,

@@ -16,49 +16,73 @@
 ```
 frontend/src/
 ├── components/
-│   ├── ui/              # shadcn/ui components
-│   │   ├── button.jsx
-│   │   ├── card.jsx
-│   │   ├── dialog.jsx
-│   │   ├── dropdown-menu.jsx
-│   │   ├── table.jsx
-│   │   ├── tabs.jsx     # Tabs component
-│   │   └── ...
-│   ├── ai/              # AI agent components
-│   │   ├── AISidebar.jsx        # Chat interface
-│   │   ├── AIToggleButton.jsx   # Floating toggle
-│   │   └── SendToAIButton.jsx   # Context capture button
-│   ├── PriceChart.jsx   # 6-month price history chart
-│   ├── StockRow.jsx     # Individual stock display with expandable analytics
-│   ├── StockAnalytics.jsx # Tabbed analytics container
-│   └── ValuationChart.jsx # Financial ratios charts (P/E, P/B, P/S)
+│   ├── ui/              # shadcn/ui components (badge, button, card, dialog, input, skeleton, tabs, etc.)
+│   ├── layout/          # App shell & navigation
+│   │   ├── AppShell.jsx       # Main layout: LeftSidebar + Outlet + RightRail + CommandPalette
+│   │   ├── LeftSidebar.jsx    # Nav sidebar (watchlists, discover, ETFs, settings)
+│   │   ├── RightRail.jsx      # Agent context panels (run steps, skills, sources)
+│   │   ├── TopBar.jsx         # Page header with context chips
+│   │   └── ComposeBar.jsx     # Message input for AI agent
+│   ├── canvas/          # Agent workspace canvas
+│   │   ├── CanvasBlock.jsx    # Rendered artifact block
+│   │   ├── CanvasStream.jsx   # Streaming artifact display
+│   │   └── WelcomeState.jsx   # Empty state for Agent Hub
+│   ├── chat/            # Chat components
+│   │   └── ChatMessageList.jsx # Message thread display
+│   ├── rightrail/       # Right rail panels
+│   │   ├── RunSteps.jsx       # Agent execution steps
+│   │   ├── SkillsPalette.jsx  # Available agent skills
+│   │   └── SourcesPanel.jsx   # Referenced data sources
+│   ├── topbar/          # Top bar components
+│   │   ├── ContextChipPicker.jsx  # Attach context to prompts
+│   │   └── ContextChips.jsx       # Display attached contexts
+│   ├── CommandPalette.jsx  # ⌘K command launcher
+│   ├── ErrorBoundary.jsx   # Error boundary wrapper
+│   ├── StockRow.jsx        # Stock display with 6-tab expandable detail
+│   ├── CandlestickChart.jsx # TradingView Lightweight Charts
+│   ├── SendToAIButton.jsx  # Context capture button
+│   └── ...
 ├── pages/
-│   ├── LoginNew.jsx     # Login/register page
-│   ├── WatchlistsNew.jsx # Watchlist list
-│   └── WatchlistDetail.jsx # Watchlist view
+│   ├── AgentHub.jsx        # AI agent workspace (home page)
+│   ├── LoginNew.jsx        # Login/register page
+│   ├── WatchlistsNew.jsx   # Watchlist list
+│   ├── WatchlistDetail.jsx # Watchlist view with stocks
+│   ├── Discover.jsx        # Market movers (gainers/losers/active)
+│   ├── ETFDashboard.jsx    # ETF screening dashboard
+│   └── Settings.jsx        # API keys & preferences
 ├── stores/
-│   ├── authStore.js     # Zustand auth state
-│   ├── aiChatStore.js   # Zustand AI chat state
-│   └── aiComponentStore.js # Component registry
+│   ├── authStore.js        # Zustand auth state
+│   ├── aiChatStore.js      # Zustand AI chat state
+│   ├── aiContextStore.js   # Context chips + component registry
+│   ├── canvasStore.js      # Canvas blocks state
+│   ├── layoutStore.js      # Panel visibility state
+│   ├── chatStore.js        # Chat UI state
+│   └── etfStore.js         # ETF dashboard state
 ├── hooks/
-│   └── useAISerializable.js # AI component registration
+│   ├── useAISerializable.js    # AI component registration
+│   └── useKeyboardShortcuts.js # Global keyboard shortcuts
 ├── lib/
 │   └── utils.js         # Tailwind utility functions
-├── App.jsx              # Router setup
+├── App.jsx              # Router setup + startup + onboarding
 ├── main.jsx             # React entry point
-└── index.css            # Global styles
+└── index.css            # Global styles + design tokens
 ```
 
 ## Key Files
 
 ### `App.jsx`
 - React Router setup with BrowserRouter
-- `ProtectedRoute` component that checks auth state
-- AI sidebar integration (conditionally rendered when authenticated)
+- `ProtectedRoute` component that checks auth state (redirects to `/login`)
+- Split into `App` (startup health check, auth init) and `AuthenticatedApp` (onboarding + AppShell)
+- Routes render inside `AppShell` via React Router `<Outlet>`
 - Routes:
-  - `/` - LoginNew (public)
+  - `/login` - LoginNew (public)
+  - `/` - AgentHub (protected, AI workspace)
   - `/watchlists` - WatchlistsNew (protected)
   - `/watchlists/:id` - WatchlistDetail (protected)
+  - `/discover` - Discover (protected)
+  - `/etf` - ETFDashboard (protected)
+  - `/settings` - Settings (protected)
 
 ### `stores/authStore.js`
 Zustand store for authentication state:
@@ -106,31 +130,26 @@ Zustand store for AI chat state and SSE streaming:
 - `done` - Response complete
 - `error` - Error occurred
 
-### `stores/aiComponentStore.js`
-Registry for AI-sendable components:
+### `stores/aiContextStore.js`
+Combined registry for AI-sendable components and context chips:
 
 **State:**
-- `components` - Map of componentId -> serialize function
+- `attachedContexts` - Array of context chips attached to compose bar (`{ id, type, label, data }`)
+- `registeredComponents` - Map of componentId -> serialize function
 
 **Actions:**
-- `register(componentId, serializeFn)` - Register component
-- `unregister(componentId)` - Unregister component
-- `getContext(componentId)` - Get component context data
+- `attachContext(item)` / `detachContext(id)` / `clearContexts()` — Manage context chips
+- `register(componentId, serializeFn)` / `unregister(componentId)` / `getContext(componentId)` — Component registry
 
-### `hooks/useAISerializable.js`
-Hook for registering components as AI-sendable:
+### `stores/canvasStore.js`
+Zustand store for agent canvas workspace:
 
-**Usage:**
-```jsx
-const componentId = useAISerializable(() => ({
-  type: 'stock-quote',
-  symbol: 'AAPL',
-  price: 180.50
-}));
-```
+**State:**
+- Canvas blocks (agent-generated artifacts)
+- Stream state for live generation
 
-**Returns:**
-- `componentId` - Unique identifier for this component instance
+### `stores/layoutStore.js`
+Zustand store for panel visibility (sidebar, right rail, etc.)
 
 ## Pages
 
@@ -161,60 +180,23 @@ const componentId = useAISerializable(() => ({
 
 ## Components
 
+### Layout (`components/layout/`)
+- **AppShell** — Top-level layout with `LeftSidebar` + main content `<Outlet>` + `RightRail` (on AgentHub only) + `CommandPalette`
+- **LeftSidebar** — Navigation sidebar with links to watchlists, discover, ETFs, settings
+- **RightRail** — Agent context panels (run steps, skills palette, sources) shown on Agent Hub
+- **TopBar** — Page header with context chips for attaching data to prompts
+- **ComposeBar** — Message input bar for composing AI agent prompts
+
+### Canvas (`components/canvas/`)
+- **CanvasBlock** — Rendered artifact block from agent output
+- **CanvasStream** — Streaming artifact display during generation
+- **WelcomeState** — Empty state shown on Agent Hub before first interaction
+
 ### StockRow (`components/StockRow.jsx`)
 - Displays single stock with live data
-- Fetches quote, MA200, and 6-month history from `/api/securities/{symbol}`
-- Shows:
-  - Symbol and current price
-  - Price change (colored red/green)
-  - 200-day moving average
-  - Volume
-- Expandable analytics section (toggle via chevron button)
-  - When expanded, shows StockAnalytics component below
-  - Smooth expand/collapse transitions
-  - Independent state per stock row
-- Remove button
+- 6-tab expandable detail panel: Chart, Fundamentals, Earnings, Analysts, Valuation, Insiders
+- Generic `fetchTabData` helper for lazy-loading tab content
 - Loading state with skeleton UI
-
-### PriceChart (`components/PriceChart.jsx`)
-- 6-month price history chart using Recharts
-- Line chart with area fill
-- Responsive container
-- Formatted axes and tooltips
-- Gradient fill under line
-- Accepts optional `data` prop to prevent redundant API calls
-- Backward compatible (fetches if no data provided)
-
-### StockAnalytics (`components/StockAnalytics.jsx`)
-- Tabbed container for stock analytics
-- Two tabs: "Price History" | "Valuation Metrics"
-- Fetches data in parallel using Promise.all():
-  - Price history from `/api/securities/{symbol}?include=history`
-  - Financial ratios from `/api/securities/{symbol}/ratios`
-- Caches data (no re-fetch on tab switch)
-- Features:
-  - Race condition prevention (cleanup on unmount)
-  - Proper error handling (no silent failures)
-  - Prop validation (symbol required)
-  - Loading states per tab
-  - Error states per tab
-- Gray background with top border
-
-### ValuationChart (`components/ValuationChart.jsx`)
-- Displays three separate financial ratio charts:
-  1. P/E Ratio (Price-to-Earnings)
-  2. P/B Ratio (Price-to-Book)
-  3. P/S Ratio (Price-to-Sales)
-- Each chart:
-  - 200px height
-  - Black line (#000000)
-  - Recharts LineChart with responsive container
-  - Date-formatted X-axis
-  - Value-formatted Y-axis
-  - Interactive tooltips
-  - No dots on line (except active point)
-  - Handles missing data (connectNulls)
-- Empty state for no data
 
 ### UI Components (`components/ui/`)
 shadcn/ui components built on Radix UI:

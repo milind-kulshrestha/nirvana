@@ -1,12 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import useAuthStore from '../stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { TrendingUp, Settings, Compass, RefreshCw, BarChart2 } from 'lucide-react';
+import { RefreshCw, TrendingUp } from 'lucide-react';
 import CalendarWidget from '../components/CalendarWidget';
 import { API_BASE } from '../config';
 
@@ -18,8 +14,6 @@ export default function Discover() {
   const [watchlistSymbols, setWatchlistSymbols] = useState([]);
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('desc');
-  const { user, logout } = useAuthStore();
-  const navigate = useNavigate();
 
   const fetchMovers = useCallback(async () => {
     setLoading(true);
@@ -72,12 +66,6 @@ export default function Discover() {
     setRefreshing(false);
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
-  const getInitials = (email) => (email ? email.substring(0, 2).toUpperCase() : 'U');
 
   const tabs = [
     { key: 'active', label: 'Most Active' },
@@ -108,74 +96,20 @@ export default function Discover() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              <Compass className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold tracking-tight">Discover</h1>
-            </div>
-            <nav className="hidden sm:flex items-center gap-1 text-sm">
-              <Link
-                to="/watchlists"
-                className="px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
-              >
-                Watchlists
-              </Link>
-              <span className="px-3 py-1.5 rounded-md bg-accent text-foreground font-medium">
-                Discover
-              </span>
-              <Link
-                to="/etf"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition"
-              >
-                <BarChart2 className="h-4 w-4" /> ETF
-              </Link>
-            </nav>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full" aria-label="User menu">
-                <Avatar>
-                  <AvatarFallback>{getInitials(user?.email)}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">My Account</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate('/settings')}>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
       <main className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Market Movers — 2/3 width */}
+          {/* Market Movers */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+              <div className="flex gap-0.5 bg-muted rounded-lg p-1">
                 {tabs.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => setTab(t.key)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-fast ${
                       tab === t.key
-                        ? 'bg-white shadow-sm text-gray-900'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? 'bg-background shadow-sm text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {t.label}
@@ -199,17 +133,17 @@ export default function Discover() {
                 No market data available
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden">
                 {/* Table header */}
-                <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 text-xs font-medium text-gray-500 uppercase">
+                <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground uppercase">
                   <div className="col-span-4">Symbol</div>
-                  <button className="col-span-2 text-right cursor-pointer hover:text-gray-700" onClick={() => handleSort('price')}>
+                  <button className="col-span-2 text-right cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('price')}>
                     Price<SortArrow column="price" />
                   </button>
-                  <button className="col-span-3 text-right cursor-pointer hover:text-gray-700" onClick={() => handleSort('change_percent')}>
+                  <button className="col-span-3 text-right cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('change_percent')}>
                     Change<SortArrow column="change_percent" />
                   </button>
-                  <button className="col-span-3 text-right hidden sm:block cursor-pointer hover:text-gray-700" onClick={() => handleSort('volume')}>
+                  <button className="col-span-3 text-right hidden sm:block cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('volume')}>
                     Volume<SortArrow column="volume" />
                   </button>
                 </div>
@@ -221,14 +155,14 @@ export default function Discover() {
                   return (
                     <div
                       key={mover.symbol + idx}
-                      className={`grid grid-cols-12 gap-2 px-4 py-3 border-t items-center hover:bg-gray-50 transition ${
-                        isWatchlist ? 'bg-indigo-50/40' : ''
+                      className={`grid grid-cols-12 gap-2 px-4 py-3 border-t border-border items-center hover:bg-muted/30 transition-colors duration-fast ${
+                        isWatchlist ? 'bg-primary/5' : ''
                       }`}
                     >
                       <div className="col-span-4 flex items-center gap-2">
-                        <span className="font-semibold text-sm text-gray-900">{mover.symbol}</span>
+                        <span className="font-semibold text-sm text-foreground font-mono">{mover.symbol}</span>
                         {mover.name && (
-                          <span className="text-xs text-gray-500 truncate hidden md:inline">
+                          <span className="text-xs text-muted-foreground truncate hidden md:inline">
                             {mover.name}
                           </span>
                         )}
@@ -239,13 +173,13 @@ export default function Discover() {
                           </Badge>
                         )}
                       </div>
-                      <div className="col-span-2 text-right font-medium text-sm">
+                      <div className="col-span-2 text-right font-medium text-sm font-mono">
                         ${mover.price.toFixed(2)}
                       </div>
-                      <div className={`col-span-3 text-right text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                      <div className={`col-span-3 text-right text-sm font-medium font-mono ${isPositive ? 'text-success' : 'text-destructive'}`}>
                         {isPositive ? '+' : ''}{mover.change.toFixed(2)} ({(mover.change_percent).toFixed(2)}%)
                       </div>
-                      <div className="col-span-3 text-right text-sm text-gray-600 hidden sm:block">
+                      <div className="col-span-3 text-right text-sm text-muted-foreground hidden sm:block font-mono">
                         {mover.volume ? (mover.volume / 1000000).toFixed(1) + 'M' : 'N/A'}
                       </div>
                     </div>
@@ -255,7 +189,7 @@ export default function Discover() {
             )}
           </div>
 
-          {/* Calendar sidebar — 1/3 width */}
+          {/* Calendar sidebar */}
           <div className="lg:col-span-1">
             <div className="bg-card rounded-lg border p-4">
               <h2 className="text-lg font-semibold mb-4">Upcoming Events</h2>

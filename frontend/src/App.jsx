@@ -1,15 +1,14 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import useAuthStore from './stores/authStore';
-import useChatStore from './stores/chatStore';
 import LoginNew from './pages/LoginNew';
+import AgentHub from './pages/AgentHub';
 import WatchlistsNew from './pages/WatchlistsNew';
 import WatchlistDetail from './pages/WatchlistDetail';
 import Settings from './pages/Settings';
 import Discover from './pages/Discover';
 import ETFDashboard from './pages/ETFDashboard';
-import AISidebar from './components/AISidebar';
-import AIToggleButton from './components/AIToggleButton';
+import AppShell from './components/layout/AppShell';
 import StartupScreen from './components/StartupScreen';
 import OnboardingWizard from './components/OnboardingWizard';
 import { API_BASE } from './config';
@@ -25,24 +24,15 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  return user ? children : <Navigate to="/" replace />;
+  return user ? children : <Navigate to="/login" replace />;
 }
 
-function App() {
-  const [backendReady, setBackendReady] = useState(false);
-  const { user, checkAuth } = useAuthStore();
-  const { sidebarOpen } = useChatStore();
+function AuthenticatedApp() {
+  const { user } = useAuthStore();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [missingKeys, setMissingKeys] = useState([]);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
 
-  useEffect(() => {
-    if (backendReady) {
-      checkAuth();
-    }
-  }, [backendReady, checkAuth]);
-
-  // Check onboarding status after user is authenticated
   useEffect(() => {
     if (!user || onboardingChecked) return;
 
@@ -68,67 +58,52 @@ function App() {
     checkOnboarding();
   }, [user, onboardingChecked]);
 
+  return (
+    <>
+      {showOnboarding && (
+        <OnboardingWizard
+          missingKeys={missingKeys}
+          onComplete={() => setShowOnboarding(false)}
+        />
+      )}
+      <AppShell />
+    </>
+  );
+}
+
+function App() {
+  const [backendReady, setBackendReady] = useState(false);
+  const { checkAuth } = useAuthStore();
+
+  useEffect(() => {
+    if (backendReady) {
+      checkAuth();
+    }
+  }, [backendReady, checkAuth]);
+
   if (!backendReady) {
     return <StartupScreen onReady={() => setBackendReady(true)} />;
   }
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen w-screen overflow-hidden">
-        <div className={`flex-1 min-w-0 overflow-auto transition-all duration-300`}>
-          {showOnboarding && (
-            <OnboardingWizard
-              missingKeys={missingKeys}
-              onComplete={() => setShowOnboarding(false)}
-            />
-          )}
-          <Routes>
-            <Route path="/" element={<LoginNew />} />
-            <Route
-              path="/watchlists"
-              element={
-                <ProtectedRoute>
-                  <WatchlistsNew />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/watchlists/:id"
-              element={
-                <ProtectedRoute>
-                  <WatchlistDetail />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/discover"
-              element={
-                <ProtectedRoute>
-                  <Discover />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/etf"
-              element={
-                <ProtectedRoute>
-                  <ETFDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </div>
-        {user && <AISidebar />}
-        {user && <AIToggleButton />}
-      </div>
+      <Routes>
+        <Route path="/login" element={<LoginNew />} />
+        <Route
+          element={
+            <ProtectedRoute>
+              <AuthenticatedApp />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<AgentHub />} />
+          <Route path="watchlists" element={<WatchlistsNew />} />
+          <Route path="watchlists/:id" element={<WatchlistDetail />} />
+          <Route path="discover" element={<Discover />} />
+          <Route path="etf" element={<ETFDashboard />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+      </Routes>
     </BrowserRouter>
   );
 }

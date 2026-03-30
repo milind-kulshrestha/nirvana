@@ -112,13 +112,22 @@ export default function WatchlistDetail() {
         const newItem = await response.json();
 
         // Fetch full stock data
-        const stockRes = await fetch(
-          `${API_BASE}/api/securities/${newItem.symbol}?include=quote,ma200,estimates,performance`,
-          { credentials: 'include' }
-        );
-        const stockData = await stockRes.json();
-
-        setItems([...items, { ...newItem, ...stockData }]);
+        try {
+          const stockRes = await fetch(
+            `${API_BASE}/api/securities/${newItem.symbol}?include=quote,ma200,estimates,performance`,
+            { credentials: 'include' }
+          );
+          if (stockRes.ok) {
+            const stockData = await stockRes.json();
+            setItems([...items, { ...newItem, ...stockData }]);
+          } else {
+            // Stock added to watchlist but market data unavailable — show it anyway
+            setItems([...items, { ...newItem, loading: false, error: 'Market data temporarily unavailable' }]);
+          }
+        } catch {
+          // Network error fetching market data — still show the stock
+          setItems([...items, { ...newItem, loading: false, error: 'Market data temporarily unavailable' }]);
+        }
         setNewSymbol('');
         setShowAddModal(false);
       } else {
@@ -161,29 +170,30 @@ export default function WatchlistDetail() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b">
+      <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
                 to="/watchlists"
-                className="text-muted-foreground hover:text-foreground"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-fast"
               >
                 ← Back
               </Link>
-              <h1 className="text-2xl font-bold text-foreground">
+              <h1 className="text-lg font-semibold text-foreground">
                 {watchlist?.name || 'Watchlist'}
               </h1>
             </div>
             <div className="flex gap-3">
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={refreshStocks}
                 disabled={refreshing}
               >
                 {refreshing ? 'Refreshing...' : '↻ Refresh'}
               </Button>
-              <Button onClick={() => setShowAddModal(true)}>
+              <Button size="sm" onClick={() => setShowAddModal(true)}>
                 + Add Stock
               </Button>
             </div>
