@@ -7,9 +7,10 @@
 - **Routing**: React Router v7
 - **Styling**: TailwindCSS + shadcn/ui
 - **State Management**: Zustand (auth, AI chat)
-- **Charts**: Recharts
-- **UI Components**: Radix UI primitives
+- **Charts**: Recharts + TradingView Lightweight Charts (candlestick)
+- **UI Components**: Radix UI primitives (shadcn/ui)
 - **AI Integration**: SSE streaming with EventSource
+- **Layout**: AppShell with LeftSidebar, RightRail, Canvas workspace
 
 ## Project Structure
 
@@ -153,30 +154,36 @@ Zustand store for panel visibility (sidebar, right rail, etc.)
 
 ## Pages
 
+### AgentHub (`pages/AgentHub.jsx`)
+- AI agent workspace (home page at `/`)
+- Canvas-based display for agent-generated artifacts
+- Compose bar for sending prompts with attached context
+
 ### LoginNew (`pages/LoginNew.jsx`)
-- Tab-based UI for Login/Register
+- Tab-based UI for Login/Register at `/login`
 - Uses authStore for state management
-- Redirects to `/watchlists` on successful auth
-- Form validation and error display
-- shadcn/ui components (Card, Tabs, Input, Button)
+- Redirects to `/` on successful auth
 
 ### WatchlistsNew (`pages/WatchlistsNew.jsx`)
 - Lists all user's watchlists
-- Create new watchlist dialog
-- Delete watchlist functionality
+- Create/delete watchlist dialogs
 - Navigation to individual watchlist detail
-- User dropdown menu with logout
-- Empty state for new users
 
 ### WatchlistDetail (`pages/WatchlistDetail.jsx`)
-- Single-column layout (right panel removed for future agent integration)
-- Displays stocks in a watchlist
-- Add stock by ticker symbol
-- Remove stocks from watchlist
-- Fetches live market data for each stock
-- Shows loading skeletons during data fetch
-- Uses StockRow component for each stock
-- Reduced white space (compact padding throughout)
+- Displays stocks in a watchlist using StockRow components
+- Add/remove stocks by ticker symbol
+- Live market data with loading skeletons
+
+### Discover (`pages/Discover.jsx`)
+- Market movers: Most Active, Gainers, Losers tables
+
+### ETFDashboard (`pages/ETFDashboard.jsx`)
+- ETF screening with ~180 preset ETFs across 6 categories
+- ABC rating, ATR%, VARS, RRS sparklines
+
+### Settings (`pages/Settings.jsx`)
+- API key management (FMP, Anthropic, OpenAI, Google, Groq)
+- Default model selection, test buttons
 
 ## Components
 
@@ -254,7 +261,7 @@ useEffect(() => {
 ### Protected Routes
 - Wrapped in `ProtectedRoute` component
 - Checks `user` from authStore
-- Redirects to `/` if not authenticated
+- Redirects to `/login` if not authenticated
 - Shows loading spinner while checking auth
 
 ### Navigation
@@ -264,10 +271,16 @@ useEffect(() => {
 
 ## Styling
 
+### Design System
+- **Color palette**: Apple-inspired — primary blue (`#0071e3`), system red, success green (`#34c759`), warning orange (`#ff9500`)
+- **Typography**: SF system font stack (`-apple-system`, `BlinkMacSystemFont`, `Segoe UI`, `San Francisco`)
+- **CSS variables**: Semantic tokens in `index.css` (light + dark themes) for background, foreground, card, muted, border, etc.
+- **Tailwind tokens**: `success`, `warning` color utilities alongside standard shadcn/ui tokens
+- **Animations**: `fade-in-up` keyframe, configurable transition durations (`fast`/`normal`/`slow`)
+
 ### TailwindCSS
 - Utility-first CSS framework
-- Configured in `tailwind.config.js`
-- Custom theme colors and animations
+- Configured in `tailwind.config.js` with extended theme
 - Responsive design utilities
 
 ### shadcn/ui
